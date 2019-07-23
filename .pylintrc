@@ -1,0 +1,12 @@
+[MESSAGES CONTROL]
+disable=bad-continuation,fixme,invalid-name,len-as-condition,no-else-return,ungrouped-imports,useless-object-inheritance
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=100
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=15
+# Maximum number of locals for function / method body
+max-locals=15
