@@ -40,4 +40,9 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
     ],
+    entry_points={
+        'console_scripts': [
+            'atlas-analysis=atlas_analysis.app.__main__:main'
+        ]
+    }
 )

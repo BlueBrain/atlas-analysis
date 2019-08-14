@@ -298,7 +298,7 @@ def test_voxel_mask_1():
 
     v1 = load_nrrd("1.nrrd")
     v2 = load_nrrd("2.nrrd")
-    res = tested.voxel_mask(v1, v2, negative_mask=True)
+    res = tested.voxel_mask(v1, v2, masked_off=True)
     npt.assert_array_equal(res.raw, expected)
 
     res = tested.voxel_mask(v1, v2)

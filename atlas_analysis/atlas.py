@@ -237,7 +237,7 @@ def logical_and(atlases, logical_and_label, cast='safe', negative_is_zero=True):
     return atlases[0].with_data(res)
 
 
-def voxel_mask(input_data, mask_data, negative_mask=False, negative_is_zero=True):
+def voxel_mask(input_data, mask_data, masked_off=False, negative_is_zero=True):
     """ Mask the input VoxelData using the mask VoxelData
 
     Will set 0 in the input atlas where the cropping atlas is not zero.
@@ -257,7 +257,7 @@ def voxel_mask(input_data, mask_data, negative_mask=False, negative_is_zero=True
     Args:
         input_data: the VoxelData to mask
         mask_data: the VoxelData containing the cropping volume
-        negative_mask: define if the mask is a logical_and or
+        masked_off: define if the mask is used to select or reject voxels
         negative_is_zero: consider negative values as zeros
 
     Returns:
@@ -271,7 +271,7 @@ def voxel_mask(input_data, mask_data, negative_mask=False, negative_is_zero=True
     input_raw = input_data.raw
     res = np.copy(input_raw)
     mask = _non_zero(mask_data.raw, negative_is_zero)
-    mask = mask if negative_mask else ~mask
+    mask = mask if masked_off else ~mask
     res[mask] = 0
     return input_data.with_data(res)
 
