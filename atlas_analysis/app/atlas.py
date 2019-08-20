@@ -10,7 +10,7 @@ import voxcell
 
 from atlas_analysis import atlas
 from atlas_analysis.utils import add_suffix
-from atlas_analysis.app.utils import split_str, log_args, load_nrrds
+from atlas_analysis.app.utils import split_str, log_args, load_nrrds, set_verbose
 
 L = logging.getLogger("Atlas")
 
@@ -22,7 +22,7 @@ CASTING_STRATEGY_HELP = 'Defines the casting strategy when combining different a
 @click.option('-v', '--verbose', count=True)
 def app(verbose):
     """Run the different atlas CLI """
-    L.setLevel((logging.WARNING, logging.INFO, logging.DEBUG)[min(verbose, 2)])
+    set_verbose(L, verbose)
 
 
 @app.command()

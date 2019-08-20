@@ -50,3 +50,8 @@ def split_str(value_str, new_type, sep=','):
 def load_nrrds(file_paths):
     """ Load multiple nrrd files into a list of voxeldata"""
     return list(map(voxcell.VoxelData.load_nrrd, file_paths))
+
+
+def set_verbose(logger, verbose):
+    """ Set the verbose level for the cli """
+    logger.setLevel((logging.WARNING, logging.INFO, logging.DEBUG)[min(verbose, 2)])
