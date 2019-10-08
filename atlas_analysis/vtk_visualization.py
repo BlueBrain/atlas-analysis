@@ -71,6 +71,7 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
         stl_files: a list of stl files that you want to display
         orientation_sampling: the number of unique orientation you want to display
     """
+    # pylint: disable=too-many-locals
     #  Create graphics renderer
     global_renderer = vtkRenderer()
     window_renderer = vtkRenderWindow()
@@ -86,7 +87,7 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
 
         idx = np.array(np.nonzero(qf.raw)).T
         sample_idx = np.random.choice(len(idx), orientation_sampling, replace=False)
-        idx = idx[sample_idx, :3]
+        idx = idx[sample_idx, :3]   # pylint: disable=unsubscriptable-object
         locs = qf.indices_to_positions(idx)
         rots = np.array([Quaternion(qf.raw[tuple(i)]) for i in idx])
 

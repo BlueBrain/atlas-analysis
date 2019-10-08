@@ -301,6 +301,7 @@ def sample_positions_from_voxeldata(voxel_data, nb_voxels=-1):
         return np.empty(0)
     nb_voxels = min(nb_voxels, nz_idx.shape[0])
     sampling = np.random.choice(nz_idx.shape[0], nb_voxels, replace=False)
+    # pylint: disable=unsubscriptable-object
     return indices_to_voxel_centers(voxel_data, nz_idx[sampling])
 
 
