@@ -1,6 +1,8 @@
 from pathlib import Path
 
+import numpy as np
 import voxcell
+
 
 DATA_PATH = Path(Path(__file__).parent, 'data')
 
@@ -19,3 +21,9 @@ def load_orientation(name):
 
 def load_nrrds(file_paths):
     return list(map(load_nrrd, map(path, file_paths)))
+
+
+def create_rectangular_shape(lenght, width):
+    raw = np.zeros((lenght, width, width))
+    raw[1:-1, 1:-1, 1:-1] = 12
+    return voxcell.VoxelData(raw, (10, 10, 10), (0, 0, 0))

@@ -6,9 +6,11 @@ from datetime import datetime
 from collections import OrderedDict
 from functools import wraps
 
+import click
 import voxcell
 
 LOG_DIRECTORY = '.'
+FILE_TYPE = click.Path(exists=True, readable=True, dir_okay=False, resolve_path=True)
 
 
 class ParameterContainer(OrderedDict):

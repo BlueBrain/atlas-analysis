@@ -281,26 +281,26 @@ def indices_to_voxel_centers(voxel_data, idx):
     return voxel_data.indices_to_positions(idx + 0.5)
 
 
-def sample_positions_from_voxeldata(voxel_data, nb_voxels=-1):
+def sample_positions_from_voxeldata(voxel_data, voxel_count=-1):
     """ Returns locs from a VoxelData object where the voxels are not 0.
 
     Args:
         voxel_data: the voxel data object.
-        nb_voxels: the number of positions for non zero voxels you want to retrieve.
-        If nb_voxels is -1 or if nb_voxels superior to the number of voxel in voxel_data
-        all voxels are used, if nb_voxel == 0 returns an empty array,
-        if  0 < nb_voxel < nb voxel in voxel_data a random sample of
+        voxel_count: the number of positions for non zero voxels you want to retrieve.
+        If voxel_count is -1 or if voxel_count superior to the number of voxel in voxel_data
+        all voxels are used, if voxel_count == 0 returns an empty array,
+        if  0 < voxel_count < tot voxels in voxel_data a random sample of voxel_count is used.
 
     Returns:
         Positions of the voxels from the VoxelData object (array([[x1 ,y1, z1],...,[xn ,yn, zn]]).
     """
     nz_idx = np.array(np.nonzero(voxel_data.raw)).T
-    if nb_voxels < 0 or nb_voxels >= nz_idx.shape[0]:
+    if voxel_count < 0 or voxel_count >= nz_idx.shape[0]:
         return indices_to_voxel_centers(voxel_data, nz_idx)
-    if nb_voxels == 0:
+    if voxel_count == 0:
         return np.empty(0)
-    nb_voxels = min(nb_voxels, nz_idx.shape[0])
-    sampling = np.random.choice(nz_idx.shape[0], nb_voxels, replace=False)
+    voxel_count = min(voxel_count, nz_idx.shape[0])
+    sampling = np.random.choice(nz_idx.shape[0], voxel_count, replace=False)
     # pylint: disable=unsubscriptable-object
     return indices_to_voxel_centers(voxel_data, nz_idx[sampling])
 

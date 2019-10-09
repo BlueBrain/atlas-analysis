@@ -10,7 +10,7 @@ import voxcell
 
 from atlas_analysis import atlas
 from atlas_analysis.utils import add_suffix
-from atlas_analysis.app.utils import split_str, log_args, load_nrrds, set_verbose
+from atlas_analysis.app.utils import split_str, log_args, load_nrrds, set_verbose, FILE_TYPE
 
 L = logging.getLogger("Atlas")
 
@@ -26,7 +26,7 @@ def app(verbose):
 
 
 @app.command()
-@click.argument('input_path', nargs=-1, type=click.Path(exists=True))
+@click.argument('input_path', nargs=-1, type=FILE_TYPE)
 @click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
 @click.option('-t', '--new_type', type=str, help='The new nrrd file type (numpy types, ex:int32)',
               required=True)
@@ -39,7 +39,7 @@ def cast_atlas(input_path, output_path, new_type):
 
 
 @app.command()
-@click.argument('input_paths', nargs=-1, type=click.Path(exists=True))
+@click.argument('input_paths', nargs=-1, type=FILE_TYPE)
 @log_args(L)
 def check_atlas_properties(input_paths):
     """ Find if dtype, shape, voxel dimension or offset are different """
@@ -64,7 +64,7 @@ def check_atlas_properties(input_paths):
 
 
 @app.command()
-@click.argument('input_paths', nargs=-1, type=click.Path(exists=True))
+@click.argument('input_paths', nargs=-1, type=FILE_TYPE)
 @click.option('-o', '--output_dir', type=str, help='Output directory name', required=True)
 @click.option('-s', '--suffix', type=str,
               help='The suffix added to the filepath in the output directory', default='')
@@ -88,8 +88,8 @@ def homogenize_dtypes(input_paths, output_dir, suffix, force, cast):
 
 
 @app.command()
-@click.argument('input_path', type=click.Path(exists=True))
-@click.option('-h', 'hierarchy_path', type=click.Path(exists=True), help='The hierachy file path',
+@click.argument('input_path', type=FILE_TYPE)
+@click.option('-h', 'hierarchy_path', type=FILE_TYPE, help='The hierachy file path',
               required=True)
 @click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
 @click.option('-f', '--field_name', type=str, help='The field name to check', required=True)
@@ -124,7 +124,7 @@ def extract(input_path, hierarchy_path, output_path, field_name, value, value_ty
 
 
 @app.command()
-@click.argument('input_path', type=click.Path(exists=True))
+@click.argument('input_path', type=FILE_TYPE)
 @click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
 @click.option('-i', '--ids', type=str, help='Ids to extract', required=True)
 @click.option('-l', '--label', type=int, default=None,
@@ -139,7 +139,7 @@ def simple_extract(input_path, output_path, ids, label):
 
 
 @app.command()
-@click.argument('input_paths', type=click.Path(exists=True), nargs=-1)
+@click.argument('input_paths', type=FILE_TYPE, nargs=-1)
 @click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
 @click.option('-l', '--label', type=int, default=None, help='New value for the selected labels')
 @click.option('-c', '--cast', type=click.Choice(['safe', 'minimal', 'strict']),
@@ -153,7 +153,7 @@ def regroup(input_paths, output_path, label, cast):
 
 
 @app.command()
-@click.argument('input_paths', type=click.Path(exists=True), nargs=-1)
+@click.argument('input_paths', type=FILE_TYPE, nargs=-1)
 @click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
 @click.option('-l', '--label', type=int, help='Value set to the overlapping voxels',
               required=True)
@@ -168,8 +168,8 @@ def logical_and(input_paths, output_path, label, cast):
 
 
 @app.command()
-@click.argument('input_path', type=click.Path(exists=True), nargs=1)
-@click.option('-m', '--mask_path', type=str, help='Mask nrrd file name', required=True)
+@click.argument('input_path', type=FILE_TYPE, nargs=1)
+@click.option('-m', '--mask_path', type=FILE_TYPE, help='Mask nrrd file name', required=True)
 @click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
 @click.option('-l', '--label', type=int, default=None, help='New value for the selected labels')
 @click.option('-mo', '--masked_off', is_flag=True, default=False,
@@ -185,8 +185,8 @@ def mask(input_path, cropping_path, output_path, label, masked_off):
 
 
 @app.command()
-@click.argument('input_path', type=click.Path(exists=True))
-@click.option('-o', '--output_path', type=click.Path(),
+@click.argument('input_path', type=FILE_TYPE)
+@click.option('-o', '--output_path', type=str,
               help='The output raw filepath', default=None)
 @click.option('-e', '--encoding', type=click.Choice(atlas.VALID_ENCODING_NRRD),
               help='The new encoding', required=True)

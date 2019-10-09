@@ -349,14 +349,14 @@ def test_sample_positions_from_voxeldata():
     npt.assert_equal(len(res), len(np.nonzero(v1.raw)[0]))
     npt.assert_array_almost_equal(res, expected)
 
-    res = tested.sample_positions_from_voxeldata(v1, nb_voxels=0)
+    res = tested.sample_positions_from_voxeldata(v1, voxel_count=0)
     npt.assert_array_almost_equal(res, [])
 
-    res = tested.sample_positions_from_voxeldata(v1, nb_voxels=12)
+    res = tested.sample_positions_from_voxeldata(v1, voxel_count=12)
     npt.assert_equal(len(res), len(np.nonzero(v1.raw)[0]))
     npt.assert_array_almost_equal(res, expected)
 
-    res = tested.sample_positions_from_voxeldata(v1, nb_voxels=4)
+    res = tested.sample_positions_from_voxeldata(v1, voxel_count=4)
     npt.assert_equal(len(res), 4)
     npt.assert_array_almost_equal(res, expected[:4])
 

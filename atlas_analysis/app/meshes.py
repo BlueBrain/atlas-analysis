@@ -7,7 +7,7 @@ import click
 import voxcell
 
 from atlas_analysis import meshes
-from atlas_analysis.app.utils import log_args, split_str, set_verbose
+from atlas_analysis.app.utils import log_args, split_str, set_verbose, FILE_TYPE
 from atlas_analysis.vtk_visualization import render
 from atlas_analysis.vtk_utils import save_unstructuredgrid_to_stl, save_polydata_to_stl
 from atlas_analysis.exceptions import AtlasError
@@ -24,7 +24,7 @@ def app(verbose):
 
 
 @app.command()
-@click.argument('input_path', type=click.Path(exists=True))
+@click.argument('input_path', type=FILE_TYPE)
 @click.option('-n', '--names', type=str, help='Names of the output files', required=True)
 @click.option('-i', '--ids', type=str, help='Ids to extract', required=True)
 @click.option('-a', '--algorithm', type=click.Choice(meshes.ALGORITHMS),
@@ -65,7 +65,7 @@ def create(input_path, names, ids, algorithm, output_dir):
 
 
 @app.command()
-@click.argument('files', type=click.Path(exists=True), nargs=-1)
+@click.argument('files', type=FILE_TYPE, nargs=-1)
 def draw(files):
     """Draw the different files in the same scene """
     render(stl_files=files)
