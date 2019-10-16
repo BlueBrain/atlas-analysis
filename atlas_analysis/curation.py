@@ -2,6 +2,7 @@
 import numpy as np
 from scipy import ndimage
 from scipy.ndimage.morphology import generate_binary_structure
+import voxcell
 
 
 def remove_connected_components(voxeldata, threshold_size, connectivity=1):
@@ -9,23 +10,23 @@ def remove_connected_components(voxeldata, threshold_size, connectivity=1):
 
       Args:
           voxeldata(VoxelData): VoxelData object holding the multi-dimensional array
-                                to be processed.
+          to be processed.
           threshold_size(int): Every connected components with no more than
-                               threshold_size voxels will be removed.
+          threshold_size voxels will be removed.
           connectivity(int): optional, integer value which defines what connected voxels are.
-                                 Two voxels are connected if their squared distance
-                                 is not greater than connectivity.
-                                 If connectivity is 1, i.e., the default value, then
-                                 two voxels are connected only if they share a common face, see
-                                 https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.ndimage.morphology.generate_binary_structure.html
-                                 and
-                                 https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.label.html
+          Two voxels are connected if their squared distance
+          is not greater than connectivity.
+          If connectivity is 1, i.e., the default value, then
+          two voxels are connected only if they share a common face, see
+          https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.ndimage.morphology.generate_binary_structure.html
+          and
+          https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.label.html
       Returns:
           filtered_voxeldata(VoxelData): a copy of the initial VoxelData object
                                          deprived of its 'small' connected components.
     """
-    # As a raw array loaded by nrrd.read() is immutable when the input file is compressed,
-    # we need to make a deep copy of it.
+    # As a raw array loaded by nrrd.read() is immutable when the input file is compressed
+    # if pynrrd's version < 0.3.4, we need to make a deep copy of it.
     raw = np.copy(voxeldata.raw)
 
     # Extract all connected components
@@ -44,3 +45,57 @@ def remove_connected_components(voxeldata, threshold_size, connectivity=1):
     raw[raw_mask] = 0
 
     return voxeldata.with_data(raw)
+
+
+def create_aabbs(voxeldata):
+    """ Create an Axis Aligned Bounding Box (https://en.wikipedia.org/wiki/Minimum_bounding_box)
+        for each non-zero voxel label of the input image file.
+
+      Args:
+          voxeldata(VoxelData): VoxelData object holding the multi-dimensional array
+                                to be processed.
+      Returns:
+          aabbs(dict): a dictionary whose integer keys are the non-zero unique labels of the input
+          image. The dictionary values are the smallest
+          AABBs enclosing the regions corresponding to the label keys. An AABB is
+          of the form (bottom, top) where bottom and top are the two
+          3D integer vectors defining the bottom and the top of the AABB in index
+          coordinates.
+    """
+
+    raw = voxeldata.raw
+    labels = np.unique(raw)
+    labels = labels[np.nonzero(labels)]  # Remove the background label
+    aabbs = dict()
+    for label in labels:
+        region_indices = np.nonzero(raw == label)
+        aabb = np.min(region_indices, axis=1), np.max(region_indices, axis=1)
+        aabbs[label] = aabb
+
+    return aabbs
+
+
+def clip_region(label, voxeldata, aabb):
+    """ Extract from a VoxelData object the region with the specified label and clip it using
+        the provided axis aligned bounding box.
+
+      Args:
+          label(int): the label of the region of interest
+          voxeldata(VoxelData): VoxelData object holding the multi-dimensional array
+          to be processed.
+          aabb(tuple): Axis Aligned Bounding Box (AABB) used to clip the specified region.
+          An AABB is of the form (bottom, top) where bottom and top are the two
+          3D integer vectors defining the bottom and the top of the AABB in index
+          coordinates.
+      Returns:
+          region(VoxelData): VoxelData object containing the specified region only.
+          The dimensions of underlying array are set using the specified bounding box.
+    """
+
+    region_raw = voxcell.math_utils.clip(voxeldata.raw, aabb)
+    off_mask = np.nonzero(region_raw != label)
+    region_raw[off_mask] = 0
+    dimensions = voxeldata.voxel_dimensions
+    offset = aabb[0] * dimensions
+    region = voxcell.VoxelData(region_raw, dimensions, voxeldata.offset + offset)
+    return region
