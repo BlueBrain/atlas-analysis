@@ -99,3 +99,53 @@ def clip_region(label, voxeldata, aabb):
     offset = aabb[0] * dimensions
     region = voxcell.VoxelData(region_raw, dimensions, voxeldata.offset + offset)
     return region
+
+
+def _add_margin(raw, margin):
+    return np.pad(raw, margin, 'constant', constant_values=0)
+
+
+def median_filter(voxel_data, filter_size, closing_size):
+    """ Apply a median filter to the input image with a filter of the specified size.
+
+        This size, given in terms of voxels, is the edge length of the cube inside
+        which the median is computed.
+        A dilation is performed before the application of the median filter and an erosion
+        is performed afterwards. Both operations use a box whose edge length is the
+        specified closing size. This combination, which is a morphological closing
+        with a filter in the middle, has proved useful to fill holes in shapes with
+        large openings.
+        See https://en.wikipedia.org/wiki/Mathematical_morphology
+        for definitions.
+        Note: this function does not preserve the volume and is likely to expand it.
+    Args:
+        voxeldata(VoxelData): VoxelData object holding the multi-dimensional array
+        to be processed.
+        filter_size(int): edge length of the box used for the median filter
+        https://en.wikipedia.org/wiki/Median_filter
+        closing_size(int): edge length of the box used to dilate the input image
+        before median-filtering and to erode it afterwards.
+    Returns:
+        voxeldata(VoxelData): VoxelData object whose array has been filtered.
+        Each dimension of the array has been increased by
+        2 * (filter_size + closing_size + 1) to take into account
+        volume expansion. The offset is adjusted accordingly.
+    """
+
+    raw = np.copy(voxel_data.raw)  # in-place is not possible as dimensions will be changed
+    label_dtype = raw.dtype
+    labels = np.unique(raw)
+    label = np.max(labels)  # zero only if the 3D image is fully black
+    binary_mask = raw > 0
+    del raw  # free memory
+    margin = filter_size + closing_size + 1
+    binary_mask = _add_margin(binary_mask, margin)
+    cube = np.full([closing_size] * 3, 1)
+    binary_mask = ndimage.morphology.binary_dilation(binary_mask, structure=cube)
+    binary_mask = ndimage.median_filter(binary_mask, size=filter_size)
+    binary_mask = ndimage.morphology.binary_erosion(binary_mask, structure=cube)
+    output_raw = np.zeros(binary_mask.shape, dtype=label_dtype)
+    output_raw[binary_mask] = label
+    # We do not remove the margin because the image has been expanded
+    offset = voxel_data.offset - margin  # adjusted because dimensions have changed
+    return voxcell.VoxelData(output_raw, voxel_data.voxel_dimensions, offset=offset)

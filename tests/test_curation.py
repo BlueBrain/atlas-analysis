@@ -1,5 +1,5 @@
-import numpy.testing as npt
 import nose.tools as nt
+import numpy.testing as npt
 import numpy as np
 import voxcell
 
@@ -24,6 +24,28 @@ def test_remove_connected_components_default_struct():
     expected_raw[0, 2, 0] = 0
     expected_raw[0, 2, 1] = 0
     expected_raw[0, 0, 2] = 0
+    npt.assert_array_equal(res.raw, expected_raw)
+    npt.assert_array_equal(res.offset, expected_offset)
+    npt.assert_array_equal(res.voxel_dimensions, expected_voxel_dimensions)
+
+def test_remove_connected_components_custom_struct():
+    initial_raw = np.zeros((3, 3, 3), dtype=np.uint32)
+    # One connected component with 3 voxels
+    initial_raw[0, 0, 0] = 4
+    initial_raw[1, 0, 0] = 4
+    initial_raw[2, 0, 0] = 4
+    # Another one connected with 3 voxels
+    initial_raw[0, 2, 0] = 2
+    initial_raw[0, 2, 1] = 2
+    initial_raw[0, 1, 2] = 2 # diagonal-type of touch
+    # One connected component with 1 voxel
+    initial_raw[2, 2, 2] = 3
+    expected_offset = [0.0, 0.0, 0.0]
+    expected_voxel_dimensions = [10.0, 10.0, 10.0]
+    voxeldata = voxcell.VoxelData(initial_raw, expected_voxel_dimensions, expected_offset)
+    res = tested.remove_connected_components(voxeldata, 2, connectivity=2)
+    expected_raw = np.copy(initial_raw)
+    expected_raw[2, 2, 2] = 0
     npt.assert_array_equal(res.raw, expected_raw)
     npt.assert_array_equal(res.offset, expected_offset)
     npt.assert_array_equal(res.voxel_dimensions, expected_voxel_dimensions)
@@ -66,3 +88,34 @@ def test_clip_region():
     npt.assert_array_equal(clipped.offset, (15.0, 15.0, 15.0))
     expected_raw = np.array([[[2], [2]]], dtype=np.uint32)
     npt.assert_array_equal(expected_raw, clipped.raw)
+
+def test_median_filter():
+    label = 3
+    shape = np.array([50, 60, 40])
+    initial_raw = np.full(shape, label)
+    filter_size = 7
+    closing_size = 14
+    x = shape[0] // 2
+    y = shape[1] // 2
+    z = shape[2] // 2
+    r = closing_size // 4
+    # Splits the box into four sub-boxes
+    initial_raw[(x - r):(x + r), :, :] = 0
+    initial_raw[:, (y - r):(y + r), :] = 0
+    initial_raw[:, :, (z - r):(z + r)] = 0
+    x = shape[0] // 4
+    y = shape[1] // 4
+    z = shape[2] // 4
+    # Creates a hole
+    initial_raw[(x - r):(x + r), (y - r):(y + r), (z - r):(z + r)] = 0
+    voxel_data = voxcell.VoxelData(initial_raw, (1.0, 1.0, 1.0))
+    # Getting the ouput
+    output = tested.median_filter(voxel_data, filter_size, closing_size)
+    # Comparing with expected result
+    margin = 2 * (filter_size + closing_size + 1)
+    expanded_shape = shape + margin
+    npt.assert_array_equal(output.raw.shape, expanded_shape)
+    expected_raw = np.full(shape, label)
+    expected_raw = np.pad(expected_raw, margin // 2, 'constant', constant_values=0)
+    average_mismatch = np.mean(expected_raw != output.raw)
+    npt.assert_almost_equal(average_mismatch, 0.0034, decimal=4)

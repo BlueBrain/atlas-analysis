@@ -6,7 +6,8 @@ import click
 import voxcell
 from atlas_analysis.curation import remove_connected_components as rm_components
 from atlas_analysis.curation import create_aabbs, clip_region
-from atlas_analysis.app.utils import log_args, set_verbose
+from atlas_analysis.curation import median_filter as median_smoothing
+from atlas_analysis.app.utils import log_args, set_verbose, FILE_TYPE
 
 L = logging.getLogger("Curation")
 
@@ -65,3 +66,40 @@ def split_regions(input_path, output_dir):
         region = clip_region(label, voxeldata, box)
         output_path = os.path.join(output_dir, '{}.nrrd'.format(label))
         region.save_nrrd(output_path)
+
+
+@app.command()
+@click.argument('input_path', type=FILE_TYPE)
+@click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
+@click.option(
+    '-f', '--filter_size', type=int,
+    help='edge size of the box used for filtering the input image', required=True
+)
+@click.option(
+    '-c',
+    '--closing_size',
+    type=int,
+    help='edge size of the box used to dilate the input image'
+    ' before filtering and to erode it afterwards.',
+    required=True)
+@log_args(L)
+def median_filter(input_path, output_path, filter_size, closing_size):
+    """ Smooth the input image by applying a median filter of the specified filter size.
+
+        This size, given in terms of voxels, is the edge length of the cube inside
+        which the median is computed.
+        (See https://en.wikipedia.org/wiki/Median_filter for the definition of the median filter.)
+        A dilation is performed before the application of the median filter and an erosion
+        is performed afterwards. Both operations use a box whose edge length is given by the
+        specified closing size.
+        This combination, which is a morphological closing
+        with a filter in the middle, has proved useful to fill holes in shapes with
+        large openings.
+        See https://en.wikipedia.org/wiki/Mathematical_morphology
+        for definitions.
+        The output is saved to the the specified output path.
+        Note: this function does not preserve the volume and is likely to expand it.
+    """
+    voxeldata = voxcell.VoxelData.load_nrrd(input_path)
+    voxeldata = median_smoothing(voxeldata, filter_size, closing_size)
+    voxeldata.save_nrrd(output_path)
