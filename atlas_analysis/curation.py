@@ -149,3 +149,54 @@ def median_filter(voxel_data, filter_size, closing_size):
     # We do not remove the margin because the image has been expanded
     offset = voxel_data.offset - margin  # adjusted because dimensions have changed
     return voxcell.VoxelData(output_raw, voxel_data.voxel_dimensions, offset=offset)
+
+
+def set_region(arr, region, aabb):
+    """ Fill in-place the region of the input array enclosed in the specified box.
+
+        The values to be assigned are the values of the specified region.
+        Note: the function assumes that the dimensions of the specified region coincide
+        with the edge lengths of the specified bounding box.
+
+    Args:
+        arr(numpy.ndarray): 3D input array
+        region(numpy.ndarray): 3D array holding the value to be set.
+        aabb(list): axis aligned bounding box defining the target region of the input array.
+        It is of the form (bottom, top) where bottom and top are 3D integer vectors.
+    """
+
+    bottom = aabb[0]
+    top = aabb[1] + 1
+    arr[bottom[0]:top[0], bottom[1]:top[1], bottom[2]:top[2]] = region
+
+
+def merge(input_voxeldata, output_voxeldata, overlap_label):
+    """ Merge the input volumetric image into the output one.
+
+        If a non-void voxel of the input corresponds to a non-void
+        voxel of the output before merging, the voxel value of the output is
+        set with the specified overlap label.
+
+      Args:
+          input_voxeldata(VoxelData): the VoxelData object whose underlying array
+          will be merged into the array of the specified output VoxelData.
+          output_voxeldata(VoxelData): VoxelData object holding
+          the multi-dimensional array into which the input array is merged.
+          overlap_label(int): the value indicating that
+          the output voxel was already assigned a non-zero label before
+          merging.
+    """
+
+    input_raw = input_voxeldata.raw
+    input_shape = np.array(input_raw.shape)
+    # Get the input image offset wrt to the output image in index coordinates
+    voxel_offset = (input_voxeldata.offset / input_voxeldata.voxel_dimensions).astype(int)
+    # Create the bounding box in which the merge operation will be performed
+    aabb = (voxel_offset, input_shape + voxel_offset - 1)
+    # Merge
+    output_region_raw = voxcell.math_utils.clip(output_voxeldata.raw, aabb)
+    overlap_mask = np.logical_and(input_raw > 0, output_region_raw > 0)
+    input_mask = input_raw > 0
+    output_region_raw[input_mask] = input_raw[input_mask]
+    output_region_raw[overlap_mask] = overlap_label
+    set_region(output_voxeldata.raw, output_region_raw, aabb)

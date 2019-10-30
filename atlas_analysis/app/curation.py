@@ -8,6 +8,7 @@ from atlas_analysis.curation import remove_connected_components as rm_components
 from atlas_analysis.curation import create_aabbs, clip_region
 from atlas_analysis.curation import median_filter as median_smoothing
 from atlas_analysis.app.utils import log_args, set_verbose, FILE_TYPE
+from atlas_analysis.curation import merge as merge_region
 
 L = logging.getLogger("Curation")
 
@@ -103,3 +104,37 @@ def median_filter(input_path, output_path, filter_size, closing_size):
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
     voxeldata = median_smoothing(voxeldata, filter_size, closing_size)
     voxeldata.save_nrrd(output_path)
+
+
+@app.command()
+@click.argument(
+    'input_dir',
+    type=click.Path(
+        exists=True,
+        readable=True,
+        dir_okay=True,
+        resolve_path=True))
+@click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
+@click.option('-m', '--master_path', type=str, help='Name of the original nrrd file'
+              ' that was used to generate the region files of the input directory', required=True)
+@click.option('-l', '--overlap_label', type=int, help='Special value used to label'
+              ' the voxels which lie in the overlap of several regions', required=True)
+@log_args(L)
+def merge(input_dir, output_path, master_path, overlap_label):
+    """ Merge the content of all the nrrd files located in the input directory.
+
+        The output is a single nrrd volumetric file whose dimensions are those of the original
+        atlas file used to extract the regions.
+        Overlapping voxels are assigned the specified overlap label.
+        This means that if two non-void voxels coming from two different regions occupy
+        the same location in the original atlas space, then the corresponding output
+        voxel will be labelled with the special overlap label.
+    """
+
+    output_voxeldata = voxcell.VoxelData.load_nrrd(master_path)
+    output_voxeldata.raw[:] = 0
+    filepaths = [Path.resolve(f) for f in Path(input_dir).glob('*.nrrd')]
+    for filepath in filepaths:
+        region_voxeldata = voxcell.VoxelData.load_nrrd(filepath)
+        merge_region(region_voxeldata, output_voxeldata, overlap_label)
+    output_voxeldata.save_nrrd(output_path)

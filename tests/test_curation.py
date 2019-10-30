@@ -119,3 +119,55 @@ def test_median_filter():
     expected_raw = np.pad(expected_raw, margin // 2, 'constant', constant_values=0)
     average_mismatch = np.mean(expected_raw != output.raw)
     npt.assert_almost_equal(average_mismatch, 0.0034, decimal=4)
+
+def test_merge_without_offset():
+    # Create regions
+    voxel_dimensions = (25.0, 25.0, 25.0)
+    raw_1 = np.zeros(shape=(3, 3, 3), dtype=np.uint32)
+    raw_1[0, :, :] = 1
+    raw_1[1, 1:3, 1] = 1
+    raw_2 = np.zeros(shape=(3, 3, 3), dtype=np.uint32)
+    raw_2[:, 0, :] = 2
+    raw_2[1:3, 1, 1] = 2
+    raw_3 = np.zeros(shape=(3, 3, 3), dtype=np.uint32)
+    raw_3[:, :, 0] = 3
+    raw_3[1, 1, 1:3] = 3
+    raws = [raw_1, raw_2, raw_3]
+    regions = [voxcell.VoxelData(raw, voxel_dimensions) for raw in raws]
+    # Create output VoxelData object
+    raw = np.zeros(shape=(3, 3, 3), dtype=np.uint32)
+    merge_output = voxcell.VoxelData(raw, voxel_dimensions)
+    # Merge regions into the output object
+    overlap_label = 666
+    for region in regions:
+        tested.merge(region, merge_output, overlap_label)
+    expected_raw = np.copy(raw_1)
+    expected_raw[:, 0, :] = 2
+    expected_raw[1:3, 1, 1] = 2
+    expected_raw[:, :, 0] = 3
+    expected_raw[1, 1, 1:3] = 3
+    expected_raw[0, 0, :] = overlap_label
+    expected_raw[0, :, 0] = overlap_label
+    expected_raw[:, 0, 0] = overlap_label
+    expected_raw[1, 1, 1] = overlap_label
+    npt.assert_array_equal(expected_raw, merge_output.raw)
+
+def test_merge_with_offset():
+    # Create regions
+    voxel_dimensions = (25.0, 25.0, 25.0)
+    raw_1 = np.full((2, 2, 3), 1, dtype=np.uint32)
+    raw_2 = np.full((2, 2, 3), 2, dtype=np.uint32)
+    region_1 = voxcell.VoxelData(raw_1, voxel_dimensions, offset=(0.0, voxel_dimensions[1], 0.0))
+    region_2 = voxcell.VoxelData(raw_2, voxel_dimensions, offset=(voxel_dimensions[0], 0.0, 0.0))
+    # Create output VoxelData object
+    raw = np.zeros(shape=(3, 3, 3), dtype=np.uint32)
+    merge_output = voxcell.VoxelData(raw, voxel_dimensions)
+    # Merge regions into the output object
+    overlap_label = 666
+    for region in [region_1, region_2]:
+        tested.merge(region, merge_output, overlap_label)
+    expected_raw = np.zeros(shape=(3, 3, 3))
+    expected_raw[0:2, 1:3, :] = 1
+    expected_raw[1:3, 0:2, :] = 2
+    expected_raw[1, 1, :] = overlap_label
+    npt.assert_array_equal(expected_raw, merge_output.raw)
