@@ -7,6 +7,7 @@ import voxcell
 from atlas_analysis.curation import remove_connected_components as rm_components
 from atlas_analysis.curation import create_aabbs, clip_region
 from atlas_analysis.curation import median_filter as median_smoothing
+from atlas_analysis.curation import assign_to_closest_region as reassign_to_closest_region
 from atlas_analysis.app.utils import log_args, set_verbose, FILE_TYPE
 from atlas_analysis.curation import merge as merge_region
 
@@ -138,3 +139,28 @@ def merge(input_dir, output_path, master_path, overlap_label):
         region_voxeldata = voxcell.VoxelData.load_nrrd(filepath)
         merge_region(region_voxeldata, output_voxeldata, overlap_label)
     output_voxeldata.save_nrrd(output_path)
+
+
+@app.command()
+@click.argument('input_path', type=FILE_TYPE)
+@click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
+@click.option(
+    '-l', '--label', type=int,
+    help='label of the voxels to be re-assigned to their closest regions', required=True
+)
+@log_args(L)
+def assign_to_closest_region(input_path, output_path, label):
+    """ Assign each voxel with the specified label to its closest region.
+
+        For each voxel of the input volumetric image bearing the specified label,
+        the algorithm selects one of the closest voxels with a different but non-zero label.
+        After assignment, the region identified by the specified label is
+        entirely distributed accross the other regions of the input.
+    Args:
+          voxeldata(VoxelData): the VoxelData object whose voxels are
+          going to be re-assigned to their closest region.
+          label(int): the label of the region to be redistributed.
+    """
+    voxeldata = voxcell.VoxelData.load_nrrd(input_path)
+    reassign_to_closest_region(voxeldata, label)
+    voxeldata.save_nrrd(output_path)

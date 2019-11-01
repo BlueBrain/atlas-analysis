@@ -200,3 +200,75 @@ def merge(input_voxeldata, output_voxeldata, overlap_label):
     output_region_raw[input_mask] = input_raw[input_mask]
     output_region_raw[overlap_mask] = overlap_label
     set_region(output_voxeldata.raw, output_region_raw, aabb)
+
+
+def pick_closest_voxel(voxel_index, voxeldata):
+    """ Pick a voxel with a different label among the closest voxels to the input one.
+
+        The distance in use is the Euclidean distance between
+        3D indices. The selected voxel of the input array must be non-void
+        and must have a different label from the input voxel.
+        If no such voxel exists, the function returns the input voxel.
+
+    Args:
+        voxel(numpy.array): 3D integer vector holding voxel indices
+        voxeldata(VoxelData): VoxelData object holding the 3D array
+        to wich the input voxel belongs.
+    Returns:
+        voxel_index(numpy.array): 3D integer vector holding the voxel multi-index
+    """
+    raw = voxeldata.raw
+    shape = np.array(raw.shape)
+    label = raw[tuple(voxel_index)]
+    side_lengths = np.full((3), 1)
+    full_array_was_visited = False  # True only if the full array has been already visited
+    while True:
+        if full_array_was_visited:
+            break
+        # Create a cube centered at the input voxel.
+        # This cube is defined as an axis-aligned bounding box, with a bottom and a top voxel.
+        bottom = voxel_index - side_lengths
+        top = voxel_index + side_lengths
+        full_array_was_visited = np.all(top >= shape) and np.all(bottom <= 0)
+        # Clip the cube dimensions to the ambient array dimensions
+        top = np.min([top, shape - 1], axis=0)
+        bottom = np.max([bottom, [0, 0, 0]], axis=0)
+        # Visit the cube, looking for all possible matches
+        aabb = (bottom, top)
+        visited_cube = voxcell.math_utils.clip(raw, aabb)
+        matches = np.where((visited_cube > 0) & (visited_cube != label))
+        matches = np.array(matches).T
+        # If no match, continue with twice the previous edge length
+        if matches.shape[0] == 0:
+            side_lengths = side_lengths * 2
+            continue
+        # Pick one of the closest matches
+        distances = np.linalg.norm(matches - voxel_index)
+        closest_match = np.argmin(distances)
+        closest_voxel_index = bottom + \
+            matches[closest_match]  # pylint: disable=unsubscriptable-object
+        return closest_voxel_index
+    return voxel_index
+
+
+def assign_to_closest_region(voxeldata, label):
+    """ Assign in-place voxels with the specified label to their closest region.
+
+        For each voxel of the input volumetric image bearing the specified label,
+        the algorithm selects one of the closest voxels with a different but non-zero label.
+        After assignment, the region identified by the specified label is
+        entirely distributed accross the other regions of the input volumetric
+        image.
+
+    Args:
+        voxeldata(VoxelData): the VoxelData object whose voxels are
+        going to be re-assigned to their closest region.
+        label(int): the label of the region to be redistributed.
+    """
+
+    raw = voxeldata.raw
+    indices_to_be_assigned = np.where(raw == label)
+    indices_to_be_assigned = np.array(indices_to_be_assigned).T
+    for voxel in indices_to_be_assigned:  # pylint: disable=not-an-iterable
+        closest_voxel_index = pick_closest_voxel(voxel, voxeldata)
+        raw[tuple(voxel)] = raw[tuple(closest_voxel_index)]

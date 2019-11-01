@@ -1,6 +1,8 @@
 import nose.tools as nt
 import numpy.testing as npt
 import numpy as np
+from scipy import ndimage
+from scipy.ndimage.morphology import generate_binary_structure
 import voxcell
 
 import atlas_analysis.curation as tested
@@ -171,3 +173,63 @@ def test_merge_with_offset():
     expected_raw[1:3, 0:2, :] = 2
     expected_raw[1, 1, :] = overlap_label
     npt.assert_array_equal(expected_raw, merge_output.raw)
+
+
+def test_pick_closest_voxel():
+    raw = np.zeros(shape=(6, 6, 6), dtype=np.uint32)
+    voxeldata = voxcell.VoxelData(raw, voxel_dimensions=(1.0, 1.0, 1.0))
+    raw[5, 5, 5] = 1
+    raw[2, 2, 3] = 666
+    raw[3, 2, 4] = 666
+    raw[1, 2, 3] = 666
+    voxel_index = [2, 2, 2]
+    raw[tuple(voxel_index)] = 666
+    closest_voxel_index = tested.pick_closest_voxel(voxel_index, voxeldata)
+    npt.assert_array_equal(closest_voxel_index, [5, 5, 5])
+    raw[5, 5, 5] = 0
+    closest_voxel_index = tested.pick_closest_voxel(voxel_index, voxeldata)
+    npt.assert_array_equal(closest_voxel_index, voxel_index)
+    raw[4, 3, 1] = 2
+    raw[3, 4, 1] = 2
+    raw[2, 3, 1] = 4
+    closest_voxel_index = tested.pick_closest_voxel(voxel_index, voxeldata)
+    npt.assert_array_equal(closest_voxel_index, [2, 3, 1])
+    raw[3, 2, 1] = 5
+    closest_voxel_index = tested.pick_closest_voxel(voxel_index, voxeldata)
+    npt.assert_array_equal(closest_voxel_index, [2, 3, 1])
+    voxel_index = [1, 1, 5]
+    raw[tuple(voxel_index)] = 666
+    closest_voxel_index = tested.pick_closest_voxel(voxel_index, voxeldata)
+    npt.assert_array_equal(closest_voxel_index, [2, 3, 1])
+    raw[2, 3, 1] = 0
+    closest_voxel_index = tested.pick_closest_voxel(voxel_index, voxeldata)
+    npt.assert_array_equal(closest_voxel_index, [3, 2, 1])
+
+
+def test_assign_to_closest_region():
+    # Create volume
+    voxel_dimensions = (1.0, 1.0, 1.0)
+    overlap_value = 666
+    side_length = 12
+    raw = np.zeros(shape=[side_length] * 3, dtype=np.uint32)
+    a = side_length // 3
+    b = 2 * side_length // 3
+    c = side_length // 2
+    # Slice the box into 3 thirds with different labels
+    raw[0:a, :, :] = 1
+    raw[a:b, :, :] = overlap_value
+    raw[b:side_length, :, :] = 2
+    raw[a:b, (c - 1):(c + 1), (c - 1):(c + 1)] = 2 # create a hole in the middle layer
+    raw[0][0][0] = 2 # exceptional value, disconnected from its region
+    raw[[side_length - 1] * 3] = 1 # idem
+    ## Create VoxelData object
+    voxeldata = voxcell.VoxelData(raw, voxel_dimensions)
+    tested.assign_to_closest_region(voxeldata, overlap_value)
+    remains = np.any(voxeldata.raw == overlap_value)
+    # Check that all voxels have been assigned a label different from the overla value
+    nt.assert_equal(not remains, True)
+    structure = generate_binary_structure(3, 1)
+    labeled_components, _ = ndimage.label(voxeldata.raw, structure=structure)
+    labels = np.unique(labeled_components)
+    # Check that there are only two connected components
+    nt.assert_equal(len(labels) + 1, 2)
