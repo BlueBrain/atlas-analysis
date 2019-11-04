@@ -25,7 +25,7 @@ setup(
         'scipy>=1.2.1',
         'pyquaternion>=0.9.5',
         'pathos>=0.2.3',
-        'voxcell>=2.6.0',
+        'voxcell>=2.6.2',
         'Click>=7.0',
         'six>=1.12.0',
         'lazy>=1.4',

@@ -324,9 +324,9 @@ def change_encoding(nrrd_path, output=None, encoding='gzip', suffix='_gzip'):
     encoding = encoding.lower()
     if encoding not in VALID_ENCODING_NRRD:
         raise AtlasError('Encoding {} not in {}'.format(encoding, ','.join(VALID_ENCODING_NRRD)))
-    raw, opt = nrrd.read(nrrd_path)
-    opt['encoding'] = encoding
+    raw, header = nrrd.read(nrrd_path)
+    header['encoding'] = encoding
     if output is None:
         output = add_suffix(nrrd_path, suffix)
-    nrrd.write(output, raw, options=opt)
+    nrrd.write(output, raw, header=header)
     return str(Path(output).absolute())
