@@ -8,7 +8,9 @@ from scipy import ndimage
 from scipy.ndimage.morphology import generate_binary_structure
 import voxcell
 from utils import load_nrrd, path, load_nrrds
-
+from atlas_analysis.exceptions import AtlasAnalysisError
+from atlas_analysis.curation import NEAREST_NEIGHBOR_INTERPOLATION,\
+    COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION
 import atlas_analysis.curation as tested
 
 def test_remove_connected_components_default_struct():
@@ -216,11 +218,9 @@ def test_pick_closest_voxel():
     closest_voxel_index = tested.pick_closest_voxel(voxel_index, voxeldata)
     npt.assert_array_equal(closest_voxel_index, [3, 2, 1])
 
-
-def test_assign_to_closest_region():
+def create_volume_for_assignment(overlap_value):
     # Create volume
-    voxel_dimensions = (10.0, 10.0, 10.0)
-    overlap_value = 666
+    voxel_dimensions = (1.0, 1.0, 1.0)
     side_length = 12
     raw = np.zeros(shape=[side_length] * 3, dtype=np.uint32)
     a = side_length // 3
@@ -235,15 +235,41 @@ def test_assign_to_closest_region():
     raw[[side_length - 1] * 3] = 1 # idem
     ## Create VoxelData object
     voxeldata = voxcell.VoxelData(raw, voxel_dimensions)
+    return voxeldata
+
+def test_assign_to_closest_region():
+    overlap_value = 666
+    voxeldata = create_volume_for_assignment(overlap_value)
     tested.assign_to_closest_region(voxeldata, overlap_value)
     remains = np.any(voxeldata.raw == overlap_value)
-    # Check that all voxels have been assigned a label different from the overlap value
+    # Check that all voxels have been assigned a label different from the overla value
     nt.assert_equal(not remains, True)
     structure = generate_binary_structure(3, 1)
     labeled_components, _ = ndimage.label(voxeldata.raw, structure=structure)
     labels = np.unique(labeled_components)
     # Check that there are only two connected components
     nt.assert_equal(len(labels) + 1, 2)
+
+def test_assign_competitively_to_closest_region():
+    overlap_value = 666
+    voxeldata = create_volume_for_assignment(overlap_value)
+    tested.assign_to_closest_region(voxeldata, overlap_value, \
+        algorithm=COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION)
+    remains = np.any(voxeldata.raw == overlap_value)
+    # Check that all voxels have been assigned a label different from the overla value
+    nt.assert_equal(not remains, True)
+    structure = generate_binary_structure(3, 1)
+    labeled_components, _ = ndimage.label(voxeldata.raw, structure=structure)
+    labels = np.unique(labeled_components)
+    # Check that there are only two connected components
+    nt.assert_equal(len(labels) + 1, 2)
+
+def test_assign_to_closest_region_wrong_algo():
+    overlap_value = 666
+    voxeldata = create_volume_for_assignment(overlap_value)
+    with nt.assert_raises(AtlasAnalysisError):
+        tested.assign_to_closest_region(voxeldata, overlap_value, \
+            algorithm='ultimate-death-star-optimizer')
 
 def test_crop():
     # One voxel only
@@ -281,7 +307,6 @@ def test_crop():
     expected_raw[1, 0, 1] = 3
     expected_raw[0, 0, 0] = 4
     npt.assert_equal(expected_raw, voxeldata.raw)
-
 
 def test_split_into_region_files():
     voxel_dimensions = (1.0, 2.0, 1.0)
@@ -322,7 +347,6 @@ def test_split_into_region_files():
         tested.merge_regions(tempdir, voxeldata_merge, overlap_label)
         npt.assert_equal(voxeldata.offset, voxeldata_merge.offset)
         npt.assert_equal(voxeldata.raw, voxeldata_merge.raw)
-
 
 def test_merge_regions():
     voxel_dimensions = np.array((1.0, 2.0, 1.0))

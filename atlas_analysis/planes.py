@@ -21,7 +21,7 @@ from atlas_analysis.utils import pairwise, ensure_list
 from atlas_analysis.maths import normalize_vectors, get_normal
 from atlas_analysis.atlas import indices_to_voxel_centers
 from atlas_analysis.constants import XYZ, ZVECTOR, X, Y, Z, QUAT
-from atlas_analysis.exceptions import AtlasError
+from atlas_analysis.exceptions import AtlasAnalysisError
 
 
 def get_plane_quaternion(plane):
@@ -150,10 +150,10 @@ def load_planes_centerline(filepath, name=None):
     if isinstance(name, collections.Iterable) and not isinstance(name, six.string_types):
         missing = set(name) - {'planes', 'centerline'}
         if missing:
-            raise AtlasError('Cannot retrieve {}'.format(missing))
+            raise AtlasAnalysisError('Cannot retrieve {}'.format(missing))
         return (res[n] for n in name)
     if name not in res:
-        raise AtlasError('Cannot retrieve {}'.format(name))
+        raise AtlasAnalysisError('Cannot retrieve {}'.format(name))
     return res[name]
 
 
@@ -359,7 +359,7 @@ def _create_centerline(voxeldata, starting_points, link_distance=500, downhill=0
         a list of points corresponding to the shortest path between both starting points
     """
     if len(starting_points) != 2:
-        raise AtlasError("Only 2 starting points are allowed for the moment")
+        raise AtlasAnalysisError("Only 2 starting points are allowed for the moment")
 
     starting_points = np.asarray(starting_points)
     dist = _distance_transform(voxeldata)

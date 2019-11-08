@@ -10,7 +10,7 @@ from atlas_analysis import meshes
 from atlas_analysis.app.utils import log_args, split_str, set_verbose, FILE_TYPE
 from atlas_analysis.vtk_visualization import render
 from atlas_analysis.vtk_utils import save_unstructuredgrid_to_stl, save_polydata_to_stl
-from atlas_analysis.exceptions import AtlasError
+from atlas_analysis.exceptions import AtlasAnalysisError
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 L = logging.getLogger("Meshes")
@@ -37,7 +37,8 @@ def create(input_path, names, ids, algorithm, output_dir):
     names = split_str(names, str)
     ids = split_str(ids, int)
     if len(names) != len(ids):
-        raise AtlasError('names (-n) and ids (-i) arguments must have the same number of elements')
+        raise AtlasAnalysisError(
+            'names (-n) and ids (-i) arguments must have the same number of elements')
     parameters = dict(zip(names, ids))
 
     output_dir_path = Path(output_dir)
@@ -61,7 +62,7 @@ def create(input_path, names, ids, algorithm, output_dir):
         elif algorithm == meshes.ALPHA_HULL:
             _save(mesh, mesh_name, save_unstructuredgrid_to_stl)
         else:
-            raise AtlasError('{} unsupported mesh algorithm'.format(algorithm))
+            raise AtlasAnalysisError('{} unsupported mesh algorithm'.format(algorithm))
 
 
 @app.command()

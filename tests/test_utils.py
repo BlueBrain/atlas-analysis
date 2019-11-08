@@ -8,7 +8,7 @@ import numpy as np
 from mock import patch
 
 import atlas_analysis.utils as tested
-from atlas_analysis.exceptions import AtlasError
+from atlas_analysis.exceptions import AtlasAnalysisError
 
 from utils import load_nrrd, path, load_orientation
 
@@ -23,7 +23,7 @@ def test_add_suffix_1():
     nt.eq_(res, expected)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_add_suffix_1():
     tested.add_suffix(path("1.nrrd"), "")
 
@@ -58,12 +58,12 @@ def test_assert_safe_cast_1():
     tested.assert_safe_cast(1, np.uint8)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_assert_safe_cast_2():
     tested.assert_safe_cast(-1, np.uint8)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_assert_safe_cast_3():
     tested.assert_safe_cast(300, np.uint8)
 
@@ -119,7 +119,7 @@ def test_compare_all_1():
     nt.assert_false(res)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_compare_all_2():
     v1 = load_nrrd("1.nrrd")
     v2 = load_nrrd("2.nrrd")

@@ -9,7 +9,7 @@ import numpy as np
 
 import voxcell
 
-from atlas_analysis.exceptions import AtlasError
+from atlas_analysis.exceptions import AtlasAnalysisError
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.INFO)
@@ -18,7 +18,7 @@ L.setLevel(logging.INFO)
 def add_suffix(file_path, to_add, force=False):
     """ Add a suffix to a file name: /dir1/dir2/file.ext --> /dir1/dir2/file<to_add>.ext"""
     if not force and not to_add:
-        raise AtlasError('to_add arg cannot be empty. Would override original file')
+        raise AtlasAnalysisError('to_add arg cannot be empty. Would override original file')
     path = Path(file_path)
     return str(Path(path.parent, path.name.replace(path.suffix, to_add + path.suffix)))
 
@@ -34,7 +34,7 @@ def ensure_list(value):
 def assert_safe_cast(value, expected_type):
     """ Check if we can safely cast a scalar or array scalar into a given type"""
     if not np.can_cast(value, expected_type, 'safe'):
-        raise AtlasError('Cannot cast {} into {}'.format(value, expected_type))
+        raise AtlasAnalysisError('Cannot cast {} into {}'.format(value, expected_type))
 
 
 def pairwise(iterable):
@@ -74,7 +74,7 @@ def compare_all(data_sets, fun, comp):
     try:
         res = all(comp(fun(data_sets[0]), fun(other)) for other in data_sets[1:])
     except Exception as e:
-        raise AtlasError("Bad operation during comparing") from e
+        raise AtlasAnalysisError("Bad operation during comparing") from e
     return res
 
 

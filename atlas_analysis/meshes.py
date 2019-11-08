@@ -2,7 +2,7 @@
 import numpy as np
 
 from atlas_analysis import vtk_utils
-from atlas_analysis.exceptions import AtlasError
+from atlas_analysis.exceptions import AtlasAnalysisError
 from atlas_analysis.atlas import extract_labels, indices_to_voxel_centers
 
 MARCHING_CUBES = 'marching_cubes'
@@ -72,7 +72,7 @@ def create_meshes(voxel_data, mesh_properties, algorithm=MARCHING_CUBES):
         a dictionary with name as key and the vtkObject object as value
     """
     if algorithm not in ALGORITHMS:
-        raise AtlasError('{} unsupported mesh algorithm'.format(algorithm))
+        raise AtlasAnalysisError('{} unsupported mesh algorithm'.format(algorithm))
     algo_function = {ALPHA_HULL: alpha_hull, MARCHING_CUBES: marching_cubes}
     res = {}
     for name, labels in mesh_properties.items():

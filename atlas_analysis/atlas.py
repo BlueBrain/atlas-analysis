@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import nrrd
 
-from atlas_analysis.exceptions import AtlasError
+from atlas_analysis.exceptions import AtlasAnalysisError
 from atlas_analysis.utils import (ensure_list, add_suffix, assert_safe_cast,
                                   compare_all)
 
@@ -25,9 +25,13 @@ def safe_cast_atlas(voxel_data, new_type):
         max_data = np.max(raw)
         min_data = np.min(raw)
         if not np.can_cast(max_data, new_type):
-            raise AtlasError("Cannot cast atlas in {}. Max value is {}".format(new_type, max_data))
+            raise AtlasAnalysisError(
+                "Cannot cast atlas in {}. Max value is {}".format(
+                    new_type, max_data))
         if not np.can_cast(min_data, new_type):
-            raise AtlasError("Cannot cast atlas in {}. Min value is {}".format(new_type, min_data))
+            raise AtlasAnalysisError(
+                "Cannot cast atlas in {}. Min value is {}".format(
+                    new_type, min_data))
     return voxel_data.with_data(raw.astype(new_type))
 
 
@@ -56,8 +60,8 @@ def homogenize_atlas_types(atlases, cast='safe'):
     if same_types:
         return atlases
     if cast == 'strict':
-        raise AtlasError('All atlases must have the same '
-                         'dtype when using "strict" cast mode')
+        raise AtlasAnalysisError('All atlases must have the same '
+                                 'dtype when using "strict" cast mode')
     if cast == 'safe':
         global_type = np.result_type(*list(map(lambda x: x.raw.dtype, atlases)))
     elif cast == 'minimal':
@@ -74,8 +78,8 @@ def homogenize_atlas_types(atlases, cast='safe'):
         else:
             global_type = np.promote_types(max_type, min_type)
     else:
-        raise AtlasError('Unknown cast type {}. Should be '
-                         '"strict", "minimal" or "safe"'.format(cast))
+        raise AtlasAnalysisError('Unknown cast type {}. Should be '
+                                 '"strict", "minimal" or "safe"'.format(cast))
     casted_atlases = []
     for atlas in atlases:
         if atlas.raw.dtype == global_type:
@@ -96,11 +100,11 @@ def assert_properties(atlases):
     """
     atlases = ensure_list(atlases)
     if not compare_all(atlases, lambda x: x.raw.shape, comp=np.allclose):
-        raise AtlasError('Need to have the same shape for all files')
+        raise AtlasAnalysisError('Need to have the same shape for all files')
     if not compare_all(atlases, lambda x: x.voxel_dimensions, comp=np.allclose):
-        raise AtlasError('Need to have the same voxel_dimensions for all files')
+        raise AtlasAnalysisError('Need to have the same voxel_dimensions for all files')
     if not compare_all(atlases, lambda x: x.offset, comp=np.allclose):
-        raise AtlasError('Need to have the same offset for all files')
+        raise AtlasAnalysisError('Need to have the same offset for all files')
 
 
 def coherent_atlases(atlases, cast='safe'):
@@ -306,7 +310,7 @@ def sample_positions_from_voxeldata(voxel_data, voxel_count=-1):
 
 
 def change_encoding(nrrd_path, output=None, encoding='gzip', suffix='_gzip'):
-    """ Change the opt['encoding'] from a nrrd file and add a suffix to the created file
+    """ Change the header['encoding'] from a nrrd file and add a suffix to the created file
 
     Args:
         nrrd_path: input path of the nrrd file
@@ -323,7 +327,9 @@ def change_encoding(nrrd_path, output=None, encoding='gzip', suffix='_gzip'):
     """
     encoding = encoding.lower()
     if encoding not in VALID_ENCODING_NRRD:
-        raise AtlasError('Encoding {} not in {}'.format(encoding, ','.join(VALID_ENCODING_NRRD)))
+        raise AtlasAnalysisError(
+            'Encoding {} not in {}'.format(
+                encoding, ','.join(VALID_ENCODING_NRRD)))
     raw, header = nrrd.read(nrrd_path)
     header['encoding'] = encoding
     if output is None:

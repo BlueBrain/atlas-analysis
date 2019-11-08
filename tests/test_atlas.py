@@ -9,7 +9,7 @@ from mock import patch
 import nrrd
 
 import atlas_analysis.atlas as tested
-from atlas_analysis.exceptions import AtlasError
+from atlas_analysis.exceptions import AtlasAnalysisError
 
 from utils import load_nrrd, path, load_nrrds
 
@@ -51,13 +51,13 @@ def test_safe_cast_atlas_1():
     npt.assert_array_equal(int8_cast.raw, [[[2]]])
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_safe_cast_atlas_2():
     neg_int8 = load_nrrd("negative_positive_int8.nrrd")
     tested.safe_cast_atlas(neg_int8, np.uint8)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_safe_cast_atlas_3():
     large_uint8 = load_nrrd("large_uint8.nrrd")
     tested.safe_cast_atlas(large_uint8, np.int8)
@@ -105,14 +105,14 @@ def test_homogenize_atlas_types_1():
     npt.assert_equal(res[0].raw.dtype, np.int16)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_homogenize_atlas_types_2():
     v1 = load_nrrd("negative_int8.nrrd")
     v2 = load_nrrd("large_uint8.nrrd")
     tested.homogenize_atlas_types([v1, v2], cast='strict')
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_homogenize_atlas_types_2():
     v1 = load_nrrd("negative_int8.nrrd")
     v2 = load_nrrd("large_uint8.nrrd")
@@ -135,19 +135,19 @@ def test_assert_properties_1():
     tested.assert_properties(atlases)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_assert_properties_1():
     atlases = load_nrrds(["1.nrrd", "1_shape.nrrd"])
     tested.assert_properties(atlases)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_assert_properties_2():
     atlases = load_nrrds(["1.nrrd", "1_voxel_dimensions.nrrd"])
     tested.assert_properties(atlases)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_assert_properties_3():
     atlases = load_nrrds(["1.nrrd", "1_offset.nrrd"])
     tested.assert_properties(atlases)
@@ -162,25 +162,25 @@ def test_coherent_atlases_1():
     compare_all(tested.coherent_atlases(atlases, cast='safe'))
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_load_coherent_atlases_2():
     files = load_nrrds(["1.nrrd", "1_type.nrrd"])
     tested.coherent_atlases(files, cast='strict')
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_load_coherent_atlases_3():
     files = load_nrrds(["1.nrrd", "1_shape.nrrd"])
     tested.coherent_atlases(files, cast='strict')
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_load_coherent_atlases_4():
     files = load_nrrds(["1.nrrd", "1_voxel_dimensions.nrrd"])
     tested.coherent_atlases(files, cast='strict')
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_load_coherent_atlases_5():
     files = load_nrrds(["1.nrrd", "1_offset.nrrd"])
     tested.coherent_atlases(files, cast='strict')
@@ -249,20 +249,20 @@ def test_regroup_atlases_1():
     npt.assert_array_equal(res.raw, expected)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_regroup_atlases_2():
     # uint8 for both "1.nrrd" and "2.nrrd"
     files = map(load_nrrd, ["1.nrrd", "2.nrrd"])
     tested.regroup_atlases(files, new_label=-1)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_regroup_atlases_3():
     files = map(load_nrrd, ["1.nrrd", "1_offset.nrrd"])
     tested.regroup_atlases(files, new_label=1)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_regroup_atlases_4():
     files = map(load_nrrd, ["1.nrrd", "1_type.nrrd"])
     tested.regroup_atlases(files, new_label=1, cast='strict')
@@ -279,13 +279,13 @@ def test_logical_and_1():
     tested.logical_and(files, 12)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_logical_and_2():
     files = load_nrrds(["1.nrrd", "1_offset.nrrd"])
     tested.logical_and(files, 12)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_logical_and_3():
     files = load_nrrds(["1.nrrd", "1_type.nrrd"])
     tested.logical_and(files, 12, cast='strict')
@@ -308,7 +308,7 @@ def test_voxel_mask_1():
     npt.assert_array_equal(res.raw, expected)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_voxel_mask_2():
     v1, v2 = load_nrrds(["1.nrrd", "1_offset.nrrd"])
     tested.voxel_mask(v1, v2)
@@ -382,7 +382,7 @@ def test_change_encoding_1():
         nt.assert_equal(returned_path, returned_path)
 
 
-@nt.raises(AtlasError)
+@nt.raises(AtlasAnalysisError)
 def test_change_encoding_2():
     with TemporaryDirectory() as directory:
         file_path = shutil.copyfile(path("1.nrrd"), Path(directory, "1.nrrd"))

@@ -7,7 +7,7 @@ import numpy as np
 import networkx
 
 import atlas_analysis.planes as tested
-from atlas_analysis.exceptions import AtlasError
+from atlas_analysis.exceptions import AtlasAnalysisError
 
 from utils import create_rectangular_shape
 
@@ -108,9 +108,9 @@ def test_load_planes_centerline():
                                                                    ["centerline", "planes"])
         npt.assert_almost_equal(res_planes, expected_planes)
         npt.assert_almost_equal(res_centerline, expected_centerline)
-        with nt.assert_raises(AtlasError):
+        with nt.assert_raises(AtlasAnalysisError):
             tested.load_planes_centerline(filepath, "asd")
-        with nt.assert_raises(AtlasError):
+        with nt.assert_raises(AtlasAnalysisError):
             tested.load_planes_centerline(filepath, ["asd", "centerline"])
 
 
@@ -191,7 +191,7 @@ def test__create_centerline():
     tol = 5
     nt.ok_(abs(y_mean_res - 75) < tol)
     nt.ok_(abs(z_mean_res - 75) < tol)
-    with nt.assert_raises(AtlasError):
+    with nt.assert_raises(AtlasAnalysisError):
         tested._create_centerline(volume, [[1, 7, 7], [999, 7, 7], [1,1,1]])
 
 

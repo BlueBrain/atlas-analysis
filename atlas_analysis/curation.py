@@ -3,7 +3,13 @@ from pathlib import Path
 import numpy as np
 from scipy import ndimage
 from scipy.ndimage.morphology import generate_binary_structure
+from scipy.interpolate import NearestNDInterpolator
 import voxcell
+from atlas_analysis.exceptions import AtlasAnalysisError
+
+NEAREST_NEIGHBOR_INTERPOLATION = 'nearest-neighbor'
+COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION = 'competitive-nearest-neighbor'
+ALGORITHMS = [NEAREST_NEIGHBOR_INTERPOLATION, COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION]
 
 
 def remove_connected_components(voxeldata, threshold_size, connectivity=1):
@@ -312,7 +318,7 @@ def pick_closest_voxel(voxel_index, voxeldata):
     return voxel_index
 
 
-def assign_to_closest_region(voxeldata, label):
+def assign_to_closest_region(voxeldata, label, algorithm=NEAREST_NEIGHBOR_INTERPOLATION):
     """ Assign in-place voxels with the specified label to their closest region.
 
     For each voxel of the input volumetric image bearing the specified label,
@@ -325,6 +331,67 @@ def assign_to_closest_region(voxeldata, label):
         voxeldata(VoxelData): the VoxelData object whose voxels are
         going to be re-assigned to their closest region.
         label(int): the label of the region to be redistributed.
+        algorithm(str): string parameter to specify which
+        interpolation to use. Defaults to NEAREST_NEIGHBOR_INTERPOLATION.
+    """
+
+    if algorithm not in ALGORITHMS:
+        raise AtlasAnalysisError('{} unsupported interpolation algorithm'.format(algorithm))
+    algo_function = {
+        NEAREST_NEIGHBOR_INTERPOLATION: nearest_neighbor_interpolate,
+        COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION: competitive_nearest_neighbor_interpolate
+    }
+    algo_function[algorithm](voxeldata, label)
+
+
+def nearest_neighbor_interpolate(voxeldata, label):
+    """ Interpolate in-place voxels with the specified label using a nearest neighbor.
+
+        For each voxel of the input volumetric image bearing the specified label,
+        the algorithm selects one of the closest voxels with a different but non-zero label
+        and assigns this new label to the voxel.
+
+        This process is commonly referred to as nearest-neighbor interpolation, see
+        https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation.
+
+        This method uses scipy's nearest-neighbor interpolator, see
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NearestNDInterpolator.html,
+        which relies in turn on scipy's cKDTree (scipy.spatial.cKDTree).
+
+    Args:
+        voxeldata(VoxelData): the VoxelData object whose voxels are
+        going to be assigned the label of a nearest neighbor.
+        label(int): the label of the region to be interpolated by its complement.
+    """
+
+    raw = voxeldata.raw
+    known_values_mask = np.logical_and(raw != label, raw != 0)
+    known_values_indices = np.where(known_values_mask)
+    known_values = raw[known_values_mask]
+    unknown_values_mask = raw == label
+    unknown_indices = np.where(unknown_values_mask)
+    interpolated_values = NearestNDInterpolator(known_values_indices, known_values)(unknown_indices)
+    raw[unknown_values_mask] = interpolated_values
+
+
+def competitive_nearest_neighbor_interpolate(voxeldata, label):
+    """ Interpolate in-place voxels with the specified label using competing nearest neighbors.
+
+        For each voxel of the input volumetric image bearing the specified label,
+        the algorithm selects one of the closest voxels with a different but non-zero label
+        and assigns this new label to the voxel. Each re-assignment is taken into account
+        for the next ones, so that the regions are competing with each other
+        to enlarge their volumes with the voxels to be re-assigned.
+
+        This process is deterministic but depends on the order with
+        which the voxels to be re-assigned are visited. It is faster than simply looking
+        for true nearest-neighbors, because the search is done, in average,
+        only on a small neighborhood of the voxel to be interpolated.
+
+    Args:
+        voxeldata(VoxelData): the VoxelData object whose voxels are
+        going to be assigned the label of a compteting nearest neighbor.
+        label(int): the label of the region to be interpolated by its complement.
     """
 
     raw = voxeldata.raw

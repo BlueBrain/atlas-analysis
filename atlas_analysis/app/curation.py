@@ -8,6 +8,7 @@ from atlas_analysis.curation import split_into_region_files, merge_regions
 from atlas_analysis.curation import median_filter as median_smoothing
 from atlas_analysis.curation import smooth as smooth_atlas
 from atlas_analysis.curation import assign_to_closest_region as reassign_to_closest_region
+from atlas_analysis.curation import ALGORITHMS, NEAREST_NEIGHBOR_INTERPOLATION
 from atlas_analysis.app.utils import log_args, set_verbose, FILE_TYPE
 
 L = logging.getLogger("Curation")
@@ -137,8 +138,13 @@ def merge(input_dir, output_path, master_path, overlap_label):
     '-l', '--label', type=int,
     help='label of the voxels to be re-assigned to their closest regions', required=True
 )
+@click.option(
+    '-a', '--algorithm', type=click.Choice(ALGORITHMS),
+    help='string parameter to specify which algorithm is used',
+    default=NEAREST_NEIGHBOR_INTERPOLATION
+)
 @log_args(L)
-def assign_to_closest_region(input_path, output_path, label):
+def assign_to_closest_region(input_path, output_path, label, algorithm):
     """ Assign each voxel with the specified label to its closest region.
 
     For each voxel of the input volumetric image bearing the specified label,
@@ -147,7 +153,7 @@ def assign_to_closest_region(input_path, output_path, label):
     entirely distributed accross the other regions of the input.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    reassign_to_closest_region(voxeldata, label)
+    reassign_to_closest_region(voxeldata, label, algorithm)
     voxeldata.save_nrrd(output_path)
 
 
