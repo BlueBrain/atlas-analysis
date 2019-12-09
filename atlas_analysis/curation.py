@@ -2,14 +2,17 @@
 from pathlib import Path
 import numpy as np
 from scipy import ndimage
-from scipy.ndimage.morphology import generate_binary_structure
+from scipy.ndimage.morphology import generate_binary_structure, binary_fill_holes
 from scipy.interpolate import NearestNDInterpolator
 import voxcell
 from atlas_analysis.exceptions import AtlasAnalysisError
 
 NEAREST_NEIGHBOR_INTERPOLATION = 'nearest-neighbor'
 COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION = 'competitive-nearest-neighbor'
-ALGORITHMS = [NEAREST_NEIGHBOR_INTERPOLATION, COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION]
+ALGORITHMS = [
+    NEAREST_NEIGHBOR_INTERPOLATION,
+    COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION,
+]
 
 
 def remove_connected_components(voxeldata, threshold_size, connectivity=1):
@@ -177,7 +180,9 @@ def median_filter(voxel_data, filter_size, closing_size, margin=None):
         to take into account volume expansion. The offset is adjusted accordingly.
     """
 
-    raw = np.copy(voxel_data.raw)  # in-place is not possible as dimensions will be changed
+    raw = np.copy(
+        voxel_data.raw
+    )  # in-place is not possible as dimensions will be changed
     label_dtype = raw.dtype
     labels = np.unique(raw)
     label = np.max(labels)  # zero only if the 3D image is fully black
@@ -288,7 +293,9 @@ def pick_closest_voxel(voxel_index, voxeldata):
     shape = np.array(raw.shape)
     label = raw[tuple(voxel_index)]
     side_lengths = np.full((3), 1)
-    full_array_was_visited = False  # True only if the full array has been already visited
+    full_array_was_visited = (
+        False  # True only if the full array has been already visited
+    )
     while True:
         if full_array_was_visited:
             break
@@ -312,13 +319,17 @@ def pick_closest_voxel(voxel_index, voxeldata):
         # Pick one of the closest matches
         distances = np.linalg.norm(matches - voxel_index)
         closest_match = np.argmin(distances)
-        closest_voxel_index = bottom + \
-            matches[closest_match]  # pylint: disable=unsubscriptable-object
+        # pylint: disable=unsubscriptable-object
+        closest_voxel_index = (
+            bottom + matches[closest_match]
+        )
         return closest_voxel_index
     return voxel_index
 
 
-def assign_to_closest_region(voxeldata, label, algorithm=NEAREST_NEIGHBOR_INTERPOLATION):
+def assign_to_closest_region(
+    voxeldata, label, algorithm=NEAREST_NEIGHBOR_INTERPOLATION
+):
     """ Assign in-place voxels with the specified label to their closest region.
 
     For each voxel of the input volumetric image bearing the specified label,
@@ -336,10 +347,12 @@ def assign_to_closest_region(voxeldata, label, algorithm=NEAREST_NEIGHBOR_INTERP
     """
 
     if algorithm not in ALGORITHMS:
-        raise AtlasAnalysisError('{} unsupported interpolation algorithm'.format(algorithm))
+        raise AtlasAnalysisError(
+            '{} unsupported interpolation algorithm'.format(algorithm)
+        )
     algo_function = {
         NEAREST_NEIGHBOR_INTERPOLATION: nearest_neighbor_interpolate,
-        COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION: competitive_nearest_neighbor_interpolate
+        COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION: competitive_nearest_neighbor_interpolate,
     }
     algo_function[algorithm](voxeldata, label)
 
@@ -370,7 +383,9 @@ def nearest_neighbor_interpolate(voxeldata, label):
     known_values = raw[known_values_mask]
     unknown_values_mask = raw == label
     unknown_indices = np.where(unknown_values_mask)
-    interpolated_values = NearestNDInterpolator(known_values_indices, known_values)(unknown_indices)
+    interpolated_values = NearestNDInterpolator(known_values_indices, known_values)(
+        unknown_indices
+    )
     raw[unknown_values_mask] = interpolated_values
 
 
@@ -440,10 +455,8 @@ def smooth(voxeldata, output_dir, threshold_size, filter_size, closing_size):
         # filter out small spurious components
         remove_connected_components(region_voxeldata, threshold_size)
         region_voxeldata = median_filter(
-            region_voxeldata,
-            filter_size,
-            closing_size,
-            margin=margin)  # fill holes and smooth (cannot be done in-place)
+            region_voxeldata, filter_size, closing_size, margin=margin
+        )  # fill holes and smooth (cannot be done in-place)
         region_voxeldata.save_nrrd(str(filepath))  # overwrite each region file
     np_type = voxeldata.raw.dtype
     overlap_label = np.iinfo(np_type).max
@@ -457,3 +470,25 @@ def smooth(voxeldata, output_dir, threshold_size, filter_size, closing_size):
     merge_regions(output_dir, voxeldata, overlap_label)
     # Assign the voxels with the special overlap label to their closest regions
     assign_to_closest_region(voxeldata, overlap_label)
+
+
+def fill_cavities(voxeldata):
+    """ Fill in-place the cavities of a Voxeldata array.
+
+    A cavity is a hole nested inside a thick 3D volume.
+    Cavities are filled in by assigning the non-zero
+    labels of the closest neighboring voxels.
+
+    Args:
+        voxeldata(VoxelData): the VoxelData object whose
+        cavities will be filled.
+    """
+
+    raw = voxeldata.raw
+    mask = np.copy(raw).astype(np.bool)  # binary copy of the input image
+    filled_mask = binary_fill_holes(mask)
+    cavities = filled_mask != mask
+    np_type = raw.dtype
+    cavity_label = np.iinfo(np_type).max
+    raw[cavities] = cavity_label
+    nearest_neighbor_interpolate(voxeldata, cavity_label)

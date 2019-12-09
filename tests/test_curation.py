@@ -395,3 +395,30 @@ def test_smooth():
             count = (voxeldata.raw == label).sum()
             diff = abs(expected_count - count) / expected_count
             npt.assert_almost_equal(0.0, diff, decimal=1)
+
+
+def test_fill_cavities():
+    size = 81
+    raw = np.zeros([size] * 3, dtype=np.int)
+    a = size // 3
+    raw[:a, :, :] = 1
+    raw[a:2*a, :, :] = 2
+    raw[2*a:3*a, :, :] = 3
+    expected_raw = np.copy(raw)
+    b = a // 3
+    # Creating a cavity within each of the three regions
+    slice_1 = slice(b, 2 * b)
+    raw[slice_1, slice_1, slice_1] = 0
+    slice_2 = slice(a + b, 2 * a - b)
+    raw[slice_2, slice_2, slice_2] = 0
+    slice_3 = slice(2 * a + b, size - b)
+    raw[slice_3, slice_3, slice_3] = 0
+    voxel_dimensions = np.array((1.0, 2.0, 1.0))
+    voxeldata = voxcell.VoxelData(raw, voxel_dimensions)
+    tested.fill_cavities(voxeldata)
+    npt.assert_array_equal(expected_raw, voxeldata.raw)
+    # Creating a cavity between the first and the second region
+    voxeldata.raw[(a - b):(a + b), slice_1, slice_1] = 0
+    tested.fill_cavities(voxeldata)
+    npt.assert_array_equal(expected_raw, voxeldata.raw)
+
