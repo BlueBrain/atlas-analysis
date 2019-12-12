@@ -151,3 +151,13 @@ def test_between():
     expected[0, 1, 0] = True
     res = tested.between(v1.raw, 2, 2)
     npt.assert_array_equal(res, expected)
+
+
+def test_string_to_type_converter():
+    nt.assert_equal(tested.string_to_type_converter('bool')('False'), True)
+    nt.assert_equal(tested.string_to_type_converter('bool')(''), False)
+    nt.assert_equal(tested.string_to_type_converter('int')('4'), 4)
+    nt.assert_equal(tested.string_to_type_converter('int')('-15'), -15)
+    nt.assert_equal(tested.string_to_type_converter('float')('3.14159'), 3.14159)
+    nt.assert_equal(tested.string_to_type_converter('float')('inf'), float('inf'))
+    nt.assert_equal(tested.string_to_type_converter('str')('Some text'), 'Some text')

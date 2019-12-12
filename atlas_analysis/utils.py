@@ -81,3 +81,18 @@ def compare_all(data_sets, fun, comp):
 def between(array, down, top):
     """ return the mask or boolean if a value is between down and up """
     return (array >= down) & (array <= top)
+
+
+def string_to_type_converter(string):
+    """ Convert a string to the type it refers to.
+
+    Args:
+        string(str): string corresponding to a python
+        basic data type, i.e., 'int', 'float', 'str' or
+        'bool'.
+
+    Returns:
+        The python type referred by the input string.
+    """
+    CONVERTER = {'int': int, 'float': float, 'str': str, 'bool': bool}
+    return CONVERTER[string]
