@@ -1,11 +1,8 @@
 """ Collection of free functions to perform basic operations on atlases """
 from pathlib import Path
-from collections import defaultdict
-
 import numpy as np
 import nrrd
 
-import voxcell
 from atlas_analysis.exceptions import AtlasAnalysisError
 from atlas_analysis.utils import (ensure_list, add_suffix, assert_safe_cast,
                                   compare_all)
@@ -338,50 +335,3 @@ def change_encoding(nrrd_path, output=None, encoding='gzip', suffix='_gzip'):
         output = add_suffix(nrrd_path, suffix)
     nrrd.write(output, raw, header=header)
     return str(Path(output).absolute())
-
-
-def compute_density_report(annotation_voxel_data, leaf_ids, filepaths):
-    """ Write a report file containing the average densities of the specified regions.
-
-    Finds in the hierarchy file the IDs of all leaf regions
-    matching a given attribute defined by the specified field name,
-    value and value type. Creates subsequently a report file that
-    contains the average density in (um)^{-3} for each leaf region and
-    for each density file located in the input density directory.
-
-    Densities are expressed in (um)^{-3}
-
-    Args:
-        voxel_data(VoxelData): the voxel data object subject to density reporting.
-        leaf_ids(list): list of unique identifiers of the leaf regions.
-        filepapths(list): list of density file paths (Path objects), with names such as
-        cell_density.nrrd, exc_density.nrrd, inh_density.nrrd, glia_density.nrrd,
-        ...
-
-    Note: the voxel_data object should hold a 3D integer array holding the labels
-    of all the regions covered by the density files. This array should have the same shape
-    as the 3D float arrays contained in the density files. All VoxelData objects are
-    assumed to have the same voxel dimensions.
-
-    Returns:
-        report(dict): dictionary whose keys are the leaf_ids of the input
-        list leaf_ids and whose values are dicts of the form {'cell_density': 0.0001,
-        'glia_density': 0.0002, ...} where each float value is the average density of the
-        corresponding region for the correponding density type.
-        Densities are expressed in (um)^{-3}
-
-    """
-    report = defaultdict(dict)
-    raw = annotation_voxel_data.raw
-    voxel_volume = annotation_voxel_data.voxel_volume
-
-    for filepath in filepaths:
-        density_type = filepath.name.replace('.nrrd', '')
-        density_voxel_data = voxcell.VoxelData.load_nrrd(filepath)
-        density_raw = density_voxel_data.raw
-        for leaf_id in leaf_ids:
-            leaf_id_mask = raw == leaf_id
-            density = np.mean(density_raw[leaf_id_mask]) / voxel_volume
-            report[leaf_id][density_type] = density  # Densities are expressed in (um)^{-3}
-
-    return report

@@ -2,7 +2,6 @@
 import sys
 import logging
 from pathlib import Path
-import json
 
 import numpy as np
 import click
@@ -193,52 +192,3 @@ def change_nrrd_encoding(input_path, output_path, encoding, suffix):
     """ Create a new version of a nrrd file with a new encoding """
     output = atlas.change_encoding(input_path, output=output_path, encoding=encoding, suffix=suffix)
     L.info('create_raw:File created here: %s', output)
-
-
-@app.command()
-@click.argument('input_path', type=FILE_TYPE)
-@click.option(
-    '-i', '--input_density_dir',
-    type=click.Path(exists=True, readable=True, dir_okay=True, resolve_path=True),
-)
-@click.option('-h', 'hierarchy_path', type=FILE_TYPE, help='The hierachy file path',
-              required=True)
-@click.option('-o', '--output_path', type=str, help='Output file name', required=True)
-@click.option('-f', '--field_name', type=str, help='The field name to check', required=True)
-@click.option('-va', '--value', type=str, help='The value to match', required=True)
-@click.option('-t', '--value_type', type=click.Choice(['int', 'float', 'str', 'bool']),
-              help='The type for value to match', required=True)
-@log_args(L)
-def write_density_report(
-    input_path, input_density_dir, hierarchy_path,
-    output_path, field_name, value, value_type
-):
-    """ Write a report file containing the average densities of the specified regions.
-
-    Finds in the hierarchy file the IDs of all leaf regions
-    matching the given attribute defined by the specified field name, value and value type.
-    Creates subsequently a report file in json format that contains the average
-    density for each leaf region and for each density file located in
-    the input directory. A density file corresponds to a density type.
-    For instance, we have density files of the form
-    cell_density.nrrd, exc_density.nrrd (excitatory neurons) or glia_density.nrrd.
-    The sections of the report are based on file names.
-
-    Densities are expressed in (um)^{-3}.
-
-    Note: input_path is the path to some nrrd annotation file whose dimensions and resolution
-    should match those of each density file located in input_density_dir.
-    """
-
-    value = string_to_type_converter(value_type)(value)  # Converting value into the correct type
-    rmap = voxcell.RegionMap.load_json(hierarchy_path)
-    leaf_ids = []
-    for identifier in rmap.find(value, field_name, with_descendants=True):
-        labels = rmap.find(identifier, 'id', with_descendants=True)
-        if len(labels) == 1:  # A label with no descendant. This is a leaf.
-            leaf_ids.append(identifier)
-    voxel_data = voxcell.VoxelData.load_nrrd(input_path)
-    filepaths = [Path.resolve(f) for f in Path(input_density_dir).glob('*.nrrd')]
-    report_dict = atlas.compute_density_report(voxel_data, leaf_ids, filepaths)
-    with open(output_path, 'w') as report_file:
-        report_file.write(json.dumps(report_dict))
