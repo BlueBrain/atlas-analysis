@@ -28,12 +28,6 @@ def test_normalize_vector():
         npt.assert_allclose(res, exp)
 
 
-def test_get_middle():
-    a = [1, 2]
-    res = tested.get_middle(a)
-    npt.assert_almost_equal(res, 1.5)
-
-
 def test_get_normal():
     expected = [0, -1, 0]
     a = Quaternion(1, 1, 0, 0)

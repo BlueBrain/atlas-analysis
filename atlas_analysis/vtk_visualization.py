@@ -15,10 +15,11 @@ import voxcell
 
 from atlas_analysis.vtk_utils import load_stl
 from atlas_analysis.utils import ensure_list
+from atlas_analysis.planes import load_planes_centerline
 
 
 def _line_actor(points, lines):
-    """ Create a line actor from points and lines """
+    """Create a line actor from points and lines."""
     lines_polyData = vtkPolyData()
     lines_polyData.SetPoints(points)
     lines_polyData.SetLines(lines)
@@ -32,7 +33,7 @@ def _line_actor(points, lines):
 
 
 def _create_vector_actor(locs, rots, axis, size_multiplier=200.):
-    """ Create 3d vectors using rot and loc and create actor used for the display.
+    """Create 3d vectors using rot and loc and create actor used for the display.
 
     Args :
         locs: list of positions for the vector origins (array([[x, y, z], [x2, y2, z2], ...)).
@@ -59,8 +60,19 @@ def _create_vector_actor(locs, rots, axis, size_multiplier=200.):
     return _line_actor(points, lines)
 
 
+def _create_centerline(centerline):
+    """Create 3d centerline using a plane_centerline output from the planes module."""
+    points = vtkPoints()
+    lines = vtkCellArray()
+    lines.InsertNextCell(len(centerline))
+    for i, point in enumerate(centerline):
+        points.InsertNextPoint(point)
+        lines.InsertCellPoint(i)
+    return _line_actor(points, lines)
+
+
 def render(orientation_file=None, rad=False, long=False, trans=False,
-           stl_files=None, orientation_sampling=40000):
+           stl_files=None, orientation_sampling=40000, centerline_file=None):
     """ The global vtk renderer
 
     Args:
@@ -70,8 +82,9 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
         trans: in case of a provided orientation file display the trans orientation.
         stl_files: a list of stl files that you want to display
         orientation_sampling: the number of unique orientation you want to display
+        centerline_file: the plane_centerline file used to create the longitudinal axis
     """
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals,too-many-statements
     #  Create graphics renderer
     global_renderer = vtkRenderer()
     window_renderer = vtkRenderWindow()
@@ -85,9 +98,10 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
             raise FileExistsError('{} does not exists'.format(orientation_file))
         qf = voxcell.OrientationField.load_nrrd(orientation_file)
 
-        idx = np.array(np.nonzero(qf.raw)).T
-        sample_idx = np.random.choice(len(idx), orientation_sampling, replace=False)
-        idx = idx[sample_idx, :3]  # pylint: disable=unsubscriptable-object
+        idx = np.array(np.nonzero(qf.raw)).T[:, :3]  # pylint: disable=unsubscriptable-object
+        if orientation_sampling < len(idx):
+            sample_idx = np.random.choice(len(idx), orientation_sampling, replace=False)
+            idx = idx[sample_idx]  # pylint: disable=unsubscriptable-object
         locs = qf.indices_to_positions(idx)
         rots = np.array([Quaternion(qf.raw[tuple(i)]) for i in idx])
 
@@ -113,6 +127,8 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
     if stl_files:
         stl_files = ensure_list(stl_files)
         for stl in stl_files:
+            if stl is None:
+                continue
             if not exists(stl):
                 raise FileExistsError('{} does not exists'.format(stl))
             mesh_data = load_stl(stl)
@@ -124,7 +140,13 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
             triangulation.GetProperty().SetOpacity(0.3)
             global_renderer.AddActor(triangulation)
 
-    #  TODO: re add the preprocess part when the plane part is included in the lib
+    # Display the center line
+    if centerline_file is not None:
+        centerline = load_planes_centerline(centerline_file, name='centerline')
+        centerline_actor = _create_centerline(centerline)
+        centerline_actor.GetProperty().SetColor(0, 1, 0)
+        centerline_actor.GetProperty().SetLineWidth(5)
+        global_renderer.AddActor(centerline_actor)
 
     # Add the actors to the renderer, set the background and size
     global_renderer.SetBackground(1, 1, 1)

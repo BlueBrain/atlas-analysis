@@ -64,7 +64,7 @@ def add_interpolated_planes(planes, inter_plane_count):
     Returns:
         a np.array using the format [x,y,z,a,b,c,d] with all planes
     """
-    if inter_plane_count == 0:
+    if inter_plane_count <= 0:
         return np.array(planes)
 
     new_planes = []
@@ -396,12 +396,12 @@ def _split_path(path, point_count):
     path = np.asarray(path)
     # distances between point i and i + 1
     distances = np.linalg.norm(np.diff(path, axis=0), axis=1)
-    cum_distances = np.cumsum(distances)
+    cum_distances = np.cumsum([0] + distances.tolist())
     path_distances = np.linspace(0, cum_distances[-1], point_count, endpoint=True)[1:-1]
     # binning of path distance on cum_distance
-    indices = np.digitize(path_distances, cum_distances)
+    indices = np.digitize(path_distances, cum_distances) - 1
     # compute the remaining distance ratios on the segment [i, i+1] for all path distances
-    ratios = (path_distances - cum_distances[indices - 1]) / distances[indices]
+    ratios = (path_distances - cum_distances[indices]) / distances[indices]
     points = np.zeros((point_count, 3), dtype=np.float32)
     points[0] = path[0]
     points[-1] = path[-1]
@@ -532,7 +532,6 @@ def create_centerline_planes(nrrd_path, output_path, starting_points,
     centerline = _create_centerline(voxeldata, starting_points, link_distance=link_distance,
                                     downhill=downhill, chain_length=chain_length,
                                     chain_count=chain_count, sampling=sampling)
-
     centerline = _smoothing(centerline, ctrl_point_count=ctrl_point_count)
     planes = _create_planes(centerline, plane_count=plane_count)
     save_planes_centerline(output_path, planes, centerline)

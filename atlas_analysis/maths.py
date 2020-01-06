@@ -21,11 +21,6 @@ def normalize_vector(vector):
     return vector / np.linalg.norm(vector)
 
 
-def get_middle(limits):
-    """ Returns the mean of a 2-tuple. [a, b] --> (a+b)/2 """
-    return (limits[0] + limits[1]) * 0.50
-
-
 def get_normal(rot):
     """Returns the normal of the oriented plane obtained using the quaternion rot """
     return rot.rotate(ZVECTOR)

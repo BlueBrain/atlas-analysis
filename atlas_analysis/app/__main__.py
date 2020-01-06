@@ -5,7 +5,7 @@ Collection of tools for atlas analysis
 import logging
 import click
 
-from atlas_analysis.app import atlas, meshes, curation, planes, reporting
+from atlas_analysis.app import atlas, meshes, curation, planes, reporting, coordinates
 from atlas_analysis.version import VERSION
 
 
@@ -17,7 +17,8 @@ def main():
         'mesh': meshes.app,
         'curation': curation.app,
         'planes': planes.app,
-        'reporting': reporting.app
+        'reporting': reporting.app,
+        'coordinates': coordinates.app
     })
     app = click.version_option(VERSION)(app)
     app()
