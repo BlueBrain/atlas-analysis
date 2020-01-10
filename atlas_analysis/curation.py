@@ -130,6 +130,26 @@ def clip_region(label, voxeldata, aabb):
     return region
 
 
+def split_into_connected_component_files(voxeldata, output_dir):
+    """ Split the input into different nnrd files, one for each connected component.
+
+    A file is generated for each connected component of the input, the background excepted.
+    Each component is cropped to its smallest enclosing bounding box and is saved under the form of
+    an nrrd file in the specified output directory.
+    """
+    binary_mask = voxeldata.raw > 0
+    # Extract all connected components
+    structure = generate_binary_structure(3, 1)
+    labeled_components, _ = ndimage.label(binary_mask, structure=structure)
+    del binary_mask  # free memory
+    components_voxel_data = voxcell.VoxelData(
+        labeled_components.astype(np.uint32),
+        voxeldata.voxel_dimensions,
+        voxeldata.offset
+    )
+    split_into_region_files(components_voxel_data, output_dir)
+
+
 def split_into_region_files(voxeldata, output_dir):
     """ Split the input into different region files.
 
@@ -218,7 +238,7 @@ def set_region(arr, region, aabb):
 
     bottom = aabb[0]
     top = aabb[1] + 1
-    arr[bottom[0]:top[0], bottom[1]:top[1], bottom[2]:top[2]] = region
+    arr[bottom[0]: top[0], bottom[1]: top[1], bottom[2]: top[2]] = region
 
 
 def merge(input_voxeldata, output_voxeldata, overlap_label):
@@ -320,9 +340,7 @@ def pick_closest_voxel(voxel_index, voxeldata):
         distances = np.linalg.norm(matches - voxel_index)
         closest_match = np.argmin(distances)
         # pylint: disable=unsubscriptable-object
-        closest_voxel_index = (
-            bottom + matches[closest_match]
-        )
+        closest_voxel_index = bottom + matches[closest_match]
         return closest_voxel_index
     return voxel_index
 

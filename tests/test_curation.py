@@ -348,6 +348,34 @@ def test_split_into_region_files():
         npt.assert_equal(voxeldata.offset, voxeldata_merge.offset)
         npt.assert_equal(voxeldata.raw, voxeldata_merge.raw)
 
+def test_split_into_connected_component_files():
+    voxel_dimensions = (1.0, 2.0, 1.0)
+    offset = (5.0, 2.0, 10.0)
+    raw = np.zeros(shape=[12] * 3, dtype=np.uint32)
+    raw[0:4, 0:4, 0:4] = 1
+    raw[5:7, 5:7, 5:7] = 1
+    raw[9:11, 9:11, 9:11] = 2
+
+    voxeldata = voxcell.VoxelData(raw, voxel_dimensions, offset=offset)
+    with tempfile.TemporaryDirectory() as tempdir:
+        # Splitting
+        tested.split_into_connected_component_files(voxeldata, tempdir)
+        dirpath = Path(tempdir)
+        # Region 1
+        voxeldata_1 = voxcell.VoxelData.load_nrrd(dirpath.joinpath('1.nrrd'))
+        npt.assert_array_equal(offset, voxeldata_1.offset)
+        npt.assert_array_equal([4] * 3, voxeldata_1.raw.shape)
+        # Region 2
+        voxeldata_2 = voxcell.VoxelData.load_nrrd(dirpath.joinpath('2.nrrd'))
+        expected_offset = np.array(offset) + np.array(voxel_dimensions) * 5
+        npt.assert_array_equal(expected_offset, voxeldata_2.offset)
+        npt.assert_array_equal([2] * 3, voxeldata_2.raw.shape)
+        # Region 3
+        voxeldata_3 = voxcell.VoxelData.load_nrrd(dirpath.joinpath('3.nrrd'))
+        expected_offset = np.array(offset) + np.array(voxel_dimensions) * 9
+        npt.assert_array_equal(expected_offset, voxeldata_3.offset)
+        npt.assert_array_equal([2] * 3, voxeldata_3.raw.shape)
+
 def test_merge_regions():
     voxel_dimensions = np.array((1.0, 2.0, 1.0))
     offset = np.array((5.0, 2.0, 10.0))

@@ -4,7 +4,11 @@ import logging
 import click
 import voxcell
 from atlas_analysis.curation import remove_connected_components as rm_components
-from atlas_analysis.curation import split_into_region_files, merge_regions
+from atlas_analysis.curation import (
+    split_into_region_files,
+    split_into_connected_component_files,
+    merge_regions,
+)
 from atlas_analysis.curation import median_filter as median_smoothing
 from atlas_analysis.curation import smooth as smooth_atlas
 from atlas_analysis.curation import (
@@ -78,6 +82,28 @@ def split_regions(input_path, output_dir):
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
     split_into_region_files(voxeldata, output_dir)
+
+
+@app.command()
+@click.argument('input_path', type=FILE_TYPE)
+@click.option(
+    '-o',
+    '--output_dir',
+    type=str,
+    help='Output directory name where the connected component files will be saved. '
+    'It will be created if it doesn\'t exist.',
+    required=True,
+)
+@log_args(L)
+def split_components(input_path, output_dir):
+    """  Split the input into different nrrd files, one for each connected component.
+
+    A file is generated for each connected component of the input, the background excepted.
+    Each component is cropped to its smallest enclosing bounding box and is saved under the form of
+    an nrrd file in the specified output directory.
+    """
+    voxeldata = voxcell.VoxelData.load_nrrd(input_path)
+    split_into_connected_component_files(voxeldata, output_dir)
 
 
 @app.command()
