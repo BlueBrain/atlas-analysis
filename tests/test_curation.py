@@ -349,6 +349,53 @@ def test_split_into_region_files():
         npt.assert_equal(voxeldata.raw, voxeldata_merge.raw)
 
 def test_split_into_connected_component_files():
+    voxel_dimensions = (3.0, 2.0, 1.0)
+    offset = (3.0, 12.0, 10.0)
+    raw = np.zeros(shape=(3, 3, 3), dtype=np.uint32)
+    # First component
+    raw[0, 0, 0] = 1
+    raw[0, 0, 1] = 2
+    raw[0, 0, 2] = 3
+    # Second component
+    raw[0, 2, 1] = 1
+    # Third component
+    raw[2, 0, 0] = 1
+    raw[2, 1, 0] = 2
+    raw[2, 2, 0] = 3
+
+    voxeldata = voxcell.VoxelData(raw, voxel_dimensions, offset=offset)
+    with tempfile.TemporaryDirectory() as tempdir:
+        # Splitting: voxel labels will be changed.
+        # The new labels are based on the connected component identifiers
+        tested.split_into_connected_component_files(voxeldata, tempdir)
+        dirpath = Path(tempdir)
+        # Region 1
+        voxeldata_1 = voxcell.VoxelData.load_nrrd(dirpath.joinpath('1.nrrd'))
+        expected = np.zeros((1, 1, 3))
+        expected[0, 0, 0] = 1
+        expected[0, 0, 1] = 2
+        expected[0, 0, 2] = 3
+        npt.assert_array_equal(offset, voxeldata_1.offset)
+        npt.assert_array_equal(expected, voxeldata_1.raw)
+        # Region 2
+        voxeldata_2 = voxcell.VoxelData.load_nrrd(dirpath.joinpath('2.nrrd'))
+        expected_offset = np.array(offset) + np.array([0.0, 2 * 2.0, 1.0])
+        npt.assert_array_equal(expected_offset, voxeldata_2.offset)
+        expected = np.zeros((1, 1, 1))
+        expected[0, 0, 0] = 1
+        npt.assert_array_equal(expected, voxeldata_2.raw)
+        # Region 3
+        voxeldata_3 = voxcell.VoxelData.load_nrrd(dirpath.joinpath('3.nrrd'))
+        expected_offset = np.array(offset) + np.array([2 * 3.0, 0.0, 0.0])
+        npt.assert_array_equal(expected_offset, voxeldata_3.offset)
+        expected = np.zeros((1, 3, 1))
+        expected[0, 0, 0] = 1
+        expected[0, 1, 0] = 2
+        expected[0, 2, 0] = 3
+        npt.assert_array_equal(expected, voxeldata_3.raw)
+
+
+def test_split_into_connected_component_files_use_component_label():
     voxel_dimensions = (1.0, 2.0, 1.0)
     offset = (5.0, 2.0, 10.0)
     raw = np.zeros(shape=[12] * 3, dtype=np.uint32)
@@ -358,8 +405,9 @@ def test_split_into_connected_component_files():
 
     voxeldata = voxcell.VoxelData(raw, voxel_dimensions, offset=offset)
     with tempfile.TemporaryDirectory() as tempdir:
-        # Splitting
-        tested.split_into_connected_component_files(voxeldata, tempdir)
+        # Splitting: voxel labels will be changed.
+        # The new labels are based on the connected component identifiers
+        tested.split_into_connected_component_files(voxeldata, tempdir, use_component_label=True)
         dirpath = Path(tempdir)
         # Region 1
         voxeldata_1 = voxcell.VoxelData.load_nrrd(dirpath.joinpath('1.nrrd'))

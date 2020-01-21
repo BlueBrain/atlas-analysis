@@ -94,16 +94,27 @@ def split_regions(input_path, output_dir):
     'It will be created if it doesn\'t exist.',
     required=True,
 )
+@click.option(
+    '-u',
+    '--use_component_label',
+    is_flag=True,
+    help='If specified, voxels are labeled with the integer '
+    'identifier of their component. Otherwise they keep their original labels.'
+)
 @log_args(L)
-def split_components(input_path, output_dir):
+def split_components(input_path, output_dir, use_component_label):
     """  Split the input into different nrrd files, one for each connected component.
 
     A file is generated for each connected component of the input, the background excepted.
     Each component is cropped to its smallest enclosing bounding box and is saved under the form of
-    an nrrd file in the specified output directory.
+    an nrrd file in the specified output directory. The name of a connected component file is given
+    by the integer identifier of the connected component (returned by scipy.ndimage.label)
+    followed by \'.nrrd\'.
+    If use_component_label is True, the voxels are labeled with the integer identifier
+    of their component. Otherwise, they keep their original labels.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    split_into_connected_component_files(voxeldata, output_dir)
+    split_into_connected_component_files(voxeldata, output_dir, use_component_label)
 
 
 @app.command()

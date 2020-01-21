@@ -130,24 +130,77 @@ def clip_region(label, voxeldata, aabb):
     return region
 
 
-def split_into_connected_component_files(voxeldata, output_dir):
+def _save_voxel_data_to_dir(voxel_data, file_name, output_dir, create_dir_if_needed=True):
+    """ Save the input VoxelData to the specified output directory.
+
+    Save the input VoxelData to the specified output directory into an nrrd file with the specified
+    file name.
+    If create_dir_if_needed is True, the output directory will be created if it doesn't
+    exist already.
+
+    Args:
+        voxeldata(VoxelData): VoxelData object to be saved.
+        output_dir(str): name of the directory where the file will be created.
+        create_dir_if_needed(bool): If True, the output directory will be created if it doesn't
+            exist already. Otherwise, no prior check is performed.
+            Defaults to True.
+    """
+    output_dir = Path(output_dir)
+    if create_dir_if_needed and not output_dir.exists():
+        output_dir.mkdir()
+    output_path = output_dir.joinpath('{}.nrrd'.format(file_name))
+    voxel_data.save_nrrd(str(output_path.resolve()))
+
+
+def split_into_connected_component_files(voxeldata, output_dir, use_component_label=False):
     """ Split the input into different nnrd files, one for each connected component.
 
     A file is generated for each connected component of the input, the background excepted.
     Each component is cropped to its smallest enclosing bounding box and is saved under the form of
     an nrrd file in the specified output directory.
+    The name of a connected component file is given by the integer identifier of
+    the connected component (returned by scipy.ndimage.label) followed by '.nrrd'.
+    If use_component_label is True, are given the label of their component. Otherwise,
+    they keep their original labels.
+
+    Args:
+        voxeldata(VoxelData): VoxelData object holding the multi-dimensional array
+            to be processed.
+        output_dir(str): name of the directory where the region files will be created.
+        use_component_label(bool): (optional) If True, the voxels of a connected component are given
+            the label of their component provided by scipy.ndimage.label.
+            Otherwise, they will keep their original labels.
+            Defaults to False.
     """
     binary_mask = voxeldata.raw > 0
     # Extract all connected components
     structure = generate_binary_structure(3, 1)
-    labeled_components, _ = ndimage.label(binary_mask, structure=structure)
+    labeled_components, number_of_connected_components \
+        = ndimage.label(binary_mask, structure=structure)
     del binary_mask  # free memory
-    components_voxel_data = voxcell.VoxelData(
-        labeled_components.astype(np.uint32),
-        voxeldata.voxel_dimensions,
-        voxeldata.offset
-    )
-    split_into_region_files(components_voxel_data, output_dir)
+    if use_component_label:
+        # Voxels will be labeled according to the connected component
+        # they belong to.
+        components_voxel_data = voxcell.VoxelData(
+            labeled_components.astype(np.uint32),
+            voxeldata.voxel_dimensions,
+            voxeldata.offset
+        )
+        split_into_region_files(components_voxel_data, output_dir)
+    else:
+        # The original voxel labels will be preserved.
+        for component_label in range(1, number_of_connected_components + 1):
+            component_mask = labeled_components == component_label
+            component_raw = np.zeros_like(voxeldata.raw, dtype=voxeldata.raw.dtype)
+            component_raw[component_mask] = voxeldata.raw[component_mask]
+            del component_mask  # free memory
+            component_voxel_data = voxcell.VoxelData(
+                component_raw,
+                voxeldata.voxel_dimensions,
+                voxeldata.offset
+            )
+            crop(component_voxel_data)
+            _save_voxel_data_to_dir(component_voxel_data, component_label, output_dir)
 
 
 def split_into_region_files(voxeldata, output_dir):
@@ -156,15 +209,15 @@ def split_into_region_files(voxeldata, output_dir):
     A region file is generated for each non-zero voxel value, a.k.a label, of the input.
     Each region is cropped to its smallest enclosing bounding box and is saved under the form of
     an nrrd file in the specified output directory.
+    Args:
+        voxeldata(VoxelData): VoxelData object holding the multi-dimensional array
+        to be processed.
+        output_dir(str): name of the directory where the region files will be created.
     """
-    output_dir = Path(output_dir)
-    if not output_dir.exists():
-        output_dir.mkdir()
     bounding_boxes = create_aabbs(voxeldata)
     for label, box in bounding_boxes.items():
         region = clip_region(label, voxeldata, box)
-        output_path = output_dir.joinpath('{}.nrrd'.format(label))
-        region.save_nrrd(str(output_path.resolve()))
+        _save_voxel_data_to_dir(region, label, output_dir)
 
 
 def _add_margin(raw, margin):
