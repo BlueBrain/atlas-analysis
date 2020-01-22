@@ -498,3 +498,11 @@ def test_fill_cavities():
     tested.fill_cavities(voxeldata)
     npt.assert_array_equal(expected_raw, voxeldata.raw)
 
+def test_add_margin():
+    raw = np.zeros([3] * 3, dtype=np.int)
+    voxel_dimensions = (1.0, 2.0, 3.0)
+    offset = (-10.0, 0.0, 10.0)
+    voxel_data = voxcell.VoxelData(raw, voxel_dimensions, offset)
+    voxel_data = tested.add_margin(voxel_data, 2)
+    npt.assert_array_equal(voxel_data.raw.shape, (7, 7, 7))
+    npt.assert_array_equal(voxel_data.offset, (-12.0, -4.0, 4.0))

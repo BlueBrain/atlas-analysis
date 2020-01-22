@@ -224,6 +224,37 @@ def _add_margin(raw, margin):
     return np.pad(raw, margin, 'constant', constant_values=0)
 
 
+def add_margin(voxel_data, margin=5):
+    """ Add margin around the input VoxelData object.
+
+    This function creates a margin of zero-valued voxels around the input volume.
+    The margin thickness, expressed in terms of voxels, is controlled by the margin argument.
+    Each dimension of the input array will be incremented by 2 * margin.
+    The VoxelData offset is changed accordingly.
+
+    Example: Consider an input VoxelData object with a raw array of shape (100, 230, 560)
+    and suppose that the dimensions of a voxel are (10.0, 15.0, 20.0)
+    and that the VoxelData offset wrt to the reference frame is (0.0, 0.0, 0.0).
+    The resulting VoxelData object for a margin value of 5 voxels will
+    hold an array of shape (120, 240, 580) with offset (-50.0, -75.0, -100.0).
+
+    Args:
+        voxeldata(VoxelData): VoxelData object to processed.
+        margin(int): the number of voxels to be used for the padding
+            in each dimension. Defaults to 5.
+    Returns:
+        voxeldata(VoxelData): VoxelData object whose obtained from the input
+            by adding a margin whose thickness is the specified number of
+            voxels.
+            Each dimension of the input array has been increased by 2 * margin.
+            The offset is adjusted accordingly.
+
+    """
+    raw = _add_margin(voxel_data.raw, margin)
+    offset = voxel_data.offset - margin * voxel_data.voxel_dimensions
+    return voxcell.VoxelData(raw, voxel_data.voxel_dimensions, offset)
+
+
 def median_filter(voxel_data, filter_size, closing_size, margin=None):
     """ Apply a median filter to the input image with a filter of the specified size.
 
@@ -249,7 +280,7 @@ def median_filter(voxel_data, filter_size, closing_size, margin=None):
         defaults to filter_size + closing_size + 1.
     Returns:
         voxeldata(VoxelData): VoxelData object whose array has been filtered.
-        Each dimension of the array has been increased by 2 * margin
+        Each dimension of the input array has been increased by 2 * margin
         to take into account volume expansion. The offset is adjusted accordingly.
     """
 
@@ -269,8 +300,8 @@ def median_filter(voxel_data, filter_size, closing_size, margin=None):
     binary_mask = ndimage.morphology.binary_erosion(binary_mask, structure=cube)
     output_raw = np.zeros(binary_mask.shape, dtype=label_dtype)
     output_raw[binary_mask] = label
-    # We do not remove the margin because the image has been expanded
-    # adjusted because dimensions have changed
+    # We do not remove the margin because the image has been expanded.
+    # The offset is adjusted because dimensions have changed.
     offset = voxel_data.offset - margin * voxel_data.voxel_dimensions
     return voxcell.VoxelData(output_raw, voxel_data.voxel_dimensions, offset=offset)
 

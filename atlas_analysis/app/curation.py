@@ -15,6 +15,7 @@ from atlas_analysis.curation import (
     assign_to_closest_region as reassign_to_closest_region,
 )
 from atlas_analysis.curation import fill_cavities as fill_in_place_cavities
+from atlas_analysis.curation import add_margin as pad
 from atlas_analysis.curation import ALGORITHMS, NEAREST_NEIGHBOR_INTERPOLATION
 from atlas_analysis.app.utils import log_args, set_verbose, FILE_TYPE
 
@@ -304,4 +305,33 @@ def fill_cavities(input_path, output_path):
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
     fill_in_place_cavities(voxeldata)
+    voxeldata.save_nrrd(output_path)
+
+
+@app.command()
+@click.argument('input_path', type=FILE_TYPE)
+@click.option(
+    '-o', '--output_path', type=str, help='Output nrrd file name', required=True
+)
+@click.option(
+    '-m',
+    '--margin',
+    type=int,
+    help='Number of voxels used to pad the input volume in each dimension. Defaults to 5',
+    default=5,
+)
+@log_args(L)
+def add_margin(input_path, output_path, margin):
+    """ Add margin around the input volume.
+
+    Usage: atlas-analysis curation [OPTIONS] INPUT_PATH
+    This function creates a margin of zero-valued voxels around the input volume and saves
+    the modified volume to the nrrd file with path INPUT_PATH.
+    The margin thickness, expressed in terms of voxels, is controlled by the margin option.
+    Its default value is 5 voxels.
+    Each dimension of the input array will be incremented by 2 * margin.
+    The VoxelData offset is changed accordingly.
+    """
+    voxeldata = voxcell.VoxelData.load_nrrd(input_path)
+    voxeldata = pad(voxeldata, margin)
     voxeldata.save_nrrd(output_path)
