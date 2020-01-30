@@ -87,7 +87,7 @@ L = logging.getLogger(__name__)
 Layer = namedtuple('Layer', ['name', 'ratio', 'raw'])
 
 
-def cut_shell(origin, quat, vtk_plane, vtk_cutter, radius=2500.):
+def _cut_shell(origin, quat, vtk_plane, vtk_cutter, radius=2500.):
     """Cut a shell mesh using a vtkCutter according to a loc and a quaternion.
 
     Args:
@@ -116,7 +116,7 @@ def cut_shell(origin, quat, vtk_plane, vtk_cutter, radius=2500.):
     return pos
 
 
-def plane_basis_projection(points, loc, rot):
+def _plane_basis_projection(points, loc, rot):
     """Projection of points within a plane.
 
     Args:
@@ -147,7 +147,7 @@ def plane_basis_projection(points, loc, rot):
     return coords
 
 
-def clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
+def _clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
     """Clean the plane cut array.
 
     Args:
@@ -173,7 +173,7 @@ def clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
     """
     # pylint: disable=too-many-locals
     # points projected on the plane coordinates
-    coords = np.array(plane_basis_projection(points, loc, rot))
+    coords = np.array(_plane_basis_projection(points, loc, rot))
 
     tree = cKDTree(coords)
 
@@ -214,7 +214,7 @@ def clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
     return points[to_keep]
 
 
-def global_sampling(upper_spline, lower_spline, nb_steps):
+def _global_sampling(upper_spline, lower_spline, nb_steps):
     """Returns the grid sampling of the orientation vectors.
 
     Args:
@@ -253,7 +253,7 @@ def global_sampling(upper_spline, lower_spline, nb_steps):
     return np.vstack(pos_all).astype(np.float32)
 
 
-def create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps):
+def _create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps):
     """Function that creates splines to describe the upper and lower shells and the indexing.
 
     Args:
@@ -287,21 +287,21 @@ def create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps):
     for plane in planes:
         loc, rot = split_plane_elements(plane)
 
-        array_upper = cut_shell(loc, rot, vtk_plane, upper_cutter)
-        array_lower = cut_shell(loc, rot, vtk_plane, lower_cutter)
+        array_upper = _cut_shell(loc, rot, vtk_plane, upper_cutter)
+        array_lower = _cut_shell(loc, rot, vtk_plane, lower_cutter)
 
         if len(array_upper) < 3 or len(array_lower) < 3:
             nb_unused_planes += 1
             continue
 
         # used to smooth the shells and remove points below the shell due to the mesh cut
-        cleaned_upper = clean_cut_array(array_upper, loc, rot, is_upper=True)
-        cleaned_lower = clean_cut_array(array_lower, loc, rot, is_upper=False)
+        cleaned_upper = _clean_cut_array(array_upper, loc, rot, is_upper=True)
+        cleaned_lower = _clean_cut_array(array_lower, loc, rot, is_upper=False)
 
         upper_spline = create_vtk_spline(cleaned_upper)
         lower_spline = create_vtk_spline(cleaned_lower)
 
-        coordinates = global_sampling(upper_spline, lower_spline, nb_spline_steps)
+        coordinates = _global_sampling(upper_spline, lower_spline, nb_spline_steps)
         sampled_points.append(coordinates)
 
     sampled_points = np.concatenate(sampled_points, axis=0).astype(np.float32)
@@ -309,7 +309,7 @@ def create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps):
     return sampled_points
 
 
-def longitudinal_coordinate_orientation(point, planes):
+def _longitudinal_coordinate_orientation(point, planes):
     """Compute the longitudinal orient and coordinate of a point according to planes orientations.
 
     Args:
@@ -344,13 +344,14 @@ def longitudinal_coordinate_orientation(point, planes):
     return quat, long
 
 
-def get_coordinates(point, kdtree, sampled_points, neighbor_count=5):
+def _get_coordinates(point, kdtree, sampled_points, neighbor_count=25):
     """Return the transverse splines corresponding to a position.
 
     Args:
         point(np.array): a position in 3 space (np.array([x,y,z]))
         kdtree(kdtree): the kdtree that includes all sampled points
         sampled_points(np.array): the map that gives map[spline_idx] = [upper_spline, lower_spline]
+        neighbor_count(int) number of neighbors to use for the interpolations of coordinates
 
     Returns:
         np.array: Weighted coordinates of points.
@@ -365,7 +366,7 @@ def get_coordinates(point, kdtree, sampled_points, neighbor_count=5):
     return res.sum(axis=0)
 
 
-def combine_orientations(long, radial):
+def _combine_orientations(long, radial):
     """Combine longitudinal and transverse orientations in one quaternion.
 
     Args:
@@ -395,7 +396,7 @@ def combine_orientations(long, radial):
     return qy * qz
 
 
-def closest_point_on_plane(point, loc, rot):
+def _closest_point_on_plane(point, loc, rot):
     """ Projection of point within the plane defined by loc and rot
 
     Args:
@@ -414,7 +415,7 @@ def closest_point_on_plane(point, loc, rot):
     return point - dist * normal
 
 
-def corrected_radial_vect(point, radial_vect, rot):
+def _corrected_radial_vect(point, radial_vect, rot):
     """Correct the radial vector by projecting the vector on the point plane.
 
     Args:
@@ -433,11 +434,11 @@ def corrected_radial_vect(point, radial_vect, rot):
     # 50 is random. Could be anything. It is here just to push the vector away a little bit and
     # reduce a possible angle error
     depth_tmp = point + normalize_vector(radial_vect) * 50
-    depth_tmp = closest_point_on_plane(depth_tmp, point, rot)
+    depth_tmp = _closest_point_on_plane(depth_tmp, point, rot)
     return depth_tmp - point
 
 
-def get_quaternion_t_r_h_layers(point_rot_long, tree, sampled_points, layer_ratios):
+def _get_quaternion_t_r_h_layers(point_rot_long, tree, sampled_points, layer_ratios):
     """Compute the global quaternion for point and values relative to radial and trans coordinates
 
     Args:
@@ -458,7 +459,7 @@ def get_quaternion_t_r_h_layers(point_rot_long, tree, sampled_points, layer_rati
     point = point_rot_long[0]
     rot = point_rot_long[1]
     long = point_rot_long[2]
-    coords = get_coordinates(point, tree, sampled_points)  # [x,y,z,r,t,vectx,vecty,vectz]
+    coords = _get_coordinates(point, tree, sampled_points)  # [x,y,z,r,t,vectx,vecty,vectz]
     # transverse vector
     r = coords[3]
     t = coords[4]
@@ -474,11 +475,11 @@ def get_quaternion_t_r_h_layers(point_rot_long, tree, sampled_points, layer_rati
     long_orient = np.array(rot.rotate(ZVECTOR))
 
     # combine both
-    quat = combine_orientations(long_orient, radial_vect)
+    quat = _combine_orientations(long_orient, radial_vect)
     return point, quat, long, t, r, h, layer_limits
 
 
-def initialize_raw(brain_regions, add_dim, dtype=np.float32, value=-1):
+def _initialize_raw(brain_regions, add_dim, dtype=np.float32, value=-1):
     """Initialize a np array that will contain atlas raw.
 
     Args:
@@ -499,8 +500,8 @@ def initialize_raw(brain_regions, add_dim, dtype=np.float32, value=-1):
     return layer_array
 
 
-def fill_atlases(points, planes, tree, brain_regions, sampled_points,
-                 new_brain_regions, orients, coordinates, heights, layers):
+def _fill_atlases(points, planes, tree, brain_regions, sampled_points,
+                  new_brain_regions, orients, coordinates, heights, layers):
     """Fills orientations for all point in points.
 
     Args:
@@ -520,7 +521,7 @@ def fill_atlases(points, planes, tree, brain_regions, sampled_points,
     # pylint: disable=too-many-locals
     # Hack to avoid partial for Pool.map
     def local_get_longitudinal_quaternion(point):
-        return longitudinal_coordinate_orientation(point, planes)
+        return _longitudinal_coordinate_orientation(point, planes)
 
     L.info("Start Longitudinal orientation computing")
     rots_longs = ProcessingPool().map(local_get_longitudinal_quaternion, points)
@@ -546,7 +547,7 @@ def fill_atlases(points, planes, tree, brain_regions, sampled_points,
     point_rot_longs = list(zip(new_points, rots, longs))
 
     def local_get_quaternion_t_r_h_layers(point_rot_long):
-        return get_quaternion_t_r_h_layers(point_rot_long, tree, sampled_points, layer_ratios)
+        return _get_quaternion_t_r_h_layers(point_rot_long, tree, sampled_points, layer_ratios)
 
     L.info("Start transverse/radial orientation computing")
     t = ProcessingPool().map(local_get_quaternion_t_r_h_layers, point_rot_longs)
@@ -567,7 +568,7 @@ def fill_atlases(points, planes, tree, brain_regions, sampled_points,
         new_brain_regions[idx] = layer_idx + 1
 
 
-def create_layers(sizes, names, brain_regions, value=np.nan):
+def _create_layers(sizes, names, brain_regions, value=np.nan):
     """ Creates a layer list using names and sizes as inputs
 
     Args:
@@ -583,7 +584,7 @@ def create_layers(sizes, names, brain_regions, value=np.nan):
     tot_size = sum(sizes)
     for i, name in enumerate(names):
         layers.append(
-            Layer(name, sizes[i] / tot_size, initialize_raw(brain_regions, 2, value=value)))
+            Layer(name, sizes[i] / tot_size, _initialize_raw(brain_regions, 2, value=value)))
     return layers
 
 
@@ -612,11 +613,11 @@ def creates(brain_regions_path, plane_centerline_path, nb_interplane, radial_tra
     planes = load_planes_centerline(plane_centerline_path, 'planes')
     brain_regions_path = voxcell.VoxelData.load_nrrd(brain_regions_path)
 
-    orients = initialize_raw(brain_regions_path, 4, value=0)
-    coordinates = initialize_raw(brain_regions_path, 3)
-    heights = initialize_raw(brain_regions_path, 0, value=np.nan)
-    layers = create_layers(sizes, names, brain_regions_path, value=np.nan)
-    new_brain_region_raw = initialize_raw(brain_regions_path, 0, dtype=np.int32, value=0)
+    orients = _initialize_raw(brain_regions_path, 4, value=0)
+    coordinates = _initialize_raw(brain_regions_path, 3)
+    heights = _initialize_raw(brain_regions_path, 0, value=np.nan)
+    layers = _create_layers(sizes, names, brain_regions_path, value=np.nan)
+    new_brain_region_raw = _initialize_raw(brain_regions_path, 0, dtype=np.int32, value=0)
 
     locs = sample_positions_from_voxeldata(brain_regions_path, voxel_count=nb_points)
     L.info('Running %i points', len(locs))
@@ -625,15 +626,15 @@ def creates(brain_regions_path, plane_centerline_path, nb_interplane, radial_tra
     lower_cutter = create_cutter_from_stl(lower_file)
     planes_interp = add_interpolated_planes(planes, nb_interplane)
 
-    sampled_points = create_spline_indexing(planes_interp, upper_cutter, lower_cutter,
-                                            radial_transverse_sampling)
+    sampled_points = _create_spline_indexing(planes_interp, upper_cutter, lower_cutter,
+                                             radial_transverse_sampling)
     L.info('Point indexing done')
     L.info(sampled_points.shape)
     tree = cKDTree(sampled_points[:, :3])
     L.info('Tree done')
-    fill_atlases(locs, planes, tree, brain_regions_path, sampled_points, new_brain_region_raw,
-                 orients,
-                 coordinates, heights, layers)
+    _fill_atlases(locs, planes, tree, brain_regions_path, sampled_points, new_brain_region_raw,
+                  orients,
+                  coordinates, heights, layers)
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
