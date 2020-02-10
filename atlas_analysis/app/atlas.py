@@ -26,7 +26,7 @@ def app(verbose):
 
 
 @app.command()
-@click.argument('input_path', nargs=-1, type=FILE_TYPE)
+@click.argument('input_path', type=FILE_TYPE)
 @click.option('-o', '--output_path', type=str, help='Output nrrd file name', required=True)
 @click.option('-t', '--new_type', type=str, help='The new nrrd file type (numpy types, ex:int32)',
               required=True)
