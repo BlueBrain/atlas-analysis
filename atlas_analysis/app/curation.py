@@ -3,19 +3,7 @@ from pathlib import Path
 import logging
 import click
 import voxcell
-from atlas_analysis.curation import remove_connected_components as rm_components
-from atlas_analysis.curation import (
-    split_into_region_files,
-    split_into_connected_component_files,
-    merge_regions,
-)
-from atlas_analysis.curation import median_filter as median_smoothing
-from atlas_analysis.curation import smooth as smooth_atlas
-from atlas_analysis.curation import (
-    assign_to_closest_region as reassign_to_closest_region,
-)
-from atlas_analysis.curation import fill_cavities as fill_in_place_cavities
-from atlas_analysis.curation import add_margin as pad
+import atlas_analysis.curation as curation
 from atlas_analysis.curation import ALGORITHMS, NEAREST_NEIGHBOR_INTERPOLATION
 from atlas_analysis.app.utils import log_args, set_verbose, FILE_TYPE
 
@@ -59,7 +47,7 @@ def remove_connected_components(input_path, output_path, threshold_size, connect
     voxels are. By default, two voxels are connected if they share a common face.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    rm_components(voxeldata, threshold_size, connectivity)
+    curation.remove_connected_components(voxeldata, threshold_size, connectivity)
     voxeldata.save_nrrd(output_path)
 
 
@@ -82,7 +70,7 @@ def split_regions(input_path, output_dir):
     an nrrd file.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    split_into_region_files(voxeldata, output_dir)
+    curation.split_into_region_files(voxeldata, output_dir)
 
 
 @app.command()
@@ -100,7 +88,7 @@ def split_regions(input_path, output_dir):
     '--use_component_label',
     is_flag=True,
     help='If specified, voxels are labeled with the integer '
-    'identifier of their component. Otherwise they keep their original labels.'
+    'identifier of their component. Otherwise they keep their original labels.',
 )
 @log_args(L)
 def split_components(input_path, output_dir, use_component_label):
@@ -115,7 +103,7 @@ def split_components(input_path, output_dir, use_component_label):
     of their component. Otherwise, they keep their original labels.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    split_into_connected_component_files(voxeldata, output_dir, use_component_label)
+    curation.split_into_connected_component_files(voxeldata, output_dir, use_component_label)
 
 
 @app.command()
@@ -156,7 +144,7 @@ def median_filter(input_path, output_path, filter_size, closing_size):
     Note: this function does not preserve the volume and is likely to expand it.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    voxeldata = median_smoothing(voxeldata, filter_size, closing_size)
+    voxeldata = curation.median_filter(voxeldata, filter_size, closing_size)
     voxeldata.save_nrrd(output_path)
 
 
@@ -196,7 +184,7 @@ def merge(input_dir, output_path, master_path, overlap_label):
     voxel will be labelled with the special overlap label.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(master_path)
-    merge_regions(input_dir, voxeldata, overlap_label)
+    curation.merge_regions(input_dir, voxeldata, overlap_label)
     voxeldata.save_nrrd(output_path)
 
 
@@ -229,7 +217,7 @@ def assign_to_closest_region(input_path, output_path, label, algorithm):
     entirely distributed accross the other regions of the input.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    reassign_to_closest_region(voxeldata, label, algorithm)
+    curation.assign_to_closest_region(voxeldata, label, algorithm)
     voxeldata.save_nrrd(output_path)
 
 
@@ -284,7 +272,7 @@ def smooth(input_path, output_dir, threshold_size, filter_size, closing_size):
     """
 
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    smooth_atlas(voxeldata, output_dir, threshold_size, filter_size, closing_size)
+    curation.smooth(voxeldata, output_dir, threshold_size, filter_size, closing_size)
     input_filename = Path(input_path).name
     output_path = Path(output_dir, input_filename)
     voxeldata.save_nrrd(str(output_path))
@@ -304,7 +292,7 @@ def fill_cavities(input_path, output_path):
     labels of the closest neighboring voxels.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    fill_in_place_cavities(voxeldata)
+    curation.fill_cavities(voxeldata)
     voxeldata.save_nrrd(output_path)
 
 
@@ -324,7 +312,7 @@ def fill_cavities(input_path, output_path):
 def add_margin(input_path, output_path, margin):
     """ Add margin around the input volume.
 
-    Usage: atlas-analysis curation [OPTIONS] INPUT_PATH
+    Usage: atlas-analysis curation [OPTIONS] INPUT_PATH\n
     This function creates a margin of zero-valued voxels around the input volume and saves
     the modified volume to the nrrd file with path INPUT_PATH.
     The margin thickness, expressed in terms of voxels, is controlled by the margin option.
@@ -333,5 +321,40 @@ def add_margin(input_path, output_path, margin):
     The VoxelData offset is changed accordingly.
     """
     voxeldata = voxcell.VoxelData.load_nrrd(input_path)
-    voxeldata = pad(voxeldata, margin)
+    voxeldata = curation.add_margin(voxeldata, margin)
+    voxeldata.save_nrrd(output_path)
+
+
+@app.command()
+@click.argument('input_path', type=FILE_TYPE)
+@click.option(
+    '-o',
+    '--output_path',
+    type=click.Path(),
+    help='Output nrrd file name',
+    required=True,
+)
+@click.option(
+    '-m',
+    '--margin',
+    type=int,
+    help='Number of voxels used to pad the output volume in each dimension. Defaults to 0',
+    default=0,
+)
+@log_args(L)
+def crop(input_path, output_path, margin):
+    """ Crop the input volume using its smallest enclosing box.
+
+    Usage: atlas-analysis curation [OPTIONS] INPUT_PATH\n
+    This functions crops the input volume using its smallest enclosed Axis Aligned Bounding Box.
+    Optionally, it creates a margin of zero-valued voxels around the input volume and saves
+    the modified volume to the nrrd file with path INPUT_PATH.
+    The margin thickness, expressed in terms of voxels, is controlled by the margin option.
+    Its default value is 0 voxels.
+    Each dimension of the input array will be incremented by 2 * margin.
+    The VoxelData offset is changed accordingly.
+    """
+    voxeldata = voxcell.VoxelData.load_nrrd(input_path)
+    curation.crop(voxeldata)
+    voxeldata = curation.add_margin(voxeldata, margin)
     voxeldata.save_nrrd(output_path)

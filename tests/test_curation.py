@@ -506,3 +506,9 @@ def test_add_margin():
     voxel_data = tested.add_margin(voxel_data, 2)
     npt.assert_array_equal(voxel_data.raw.shape, (7, 7, 7))
     npt.assert_array_equal(voxel_data.offset, (-12.0, -4.0, 4.0))
+
+@nt.raises(ValueError)
+def test_add_margin_negative_input():
+    voxel_data = voxcell.VoxelData(
+        np.zeros([3] * 3, dtype=np.int), (1.0, 1.0, 1.0))
+    tested.add_margin(voxel_data, -5)

@@ -69,13 +69,7 @@ def create_aabbs(voxeldata):
     raw = voxeldata.raw
     labels = np.unique(raw)
     labels = labels[np.nonzero(labels)]  # Remove the background label
-    aabbs = dict()
-    for label in labels:
-        region_indices = np.nonzero(raw == label)
-        aabb = np.min(region_indices, axis=1), np.max(region_indices, axis=1)
-        aabbs[label] = aabb
-
-    return aabbs
+    return {label: voxcell.math_utils.minimum_aabb(raw == label) for label in labels}
 
 
 def crop(voxeldata):
@@ -89,14 +83,7 @@ def crop(voxeldata):
         voxeldata(VoxelData): VoxelData object to be cropped.
     """
 
-    np_type = voxeldata.raw.dtype
-    aabbs = create_aabbs(voxeldata)
-    bottom = [np.iinfo(np_type).max] * 3
-    top = [0] * 3
-    for _, box in aabbs.items():
-        bottom = np.min([bottom, box[0]], axis=0)
-        top = np.max([top, box[1]], axis=0)
-    aabb = (bottom, top)
+    aabb = voxcell.math_utils.minimum_aabb(voxeldata.raw)
     voxeldata.raw = voxcell.math_utils.clip(voxeldata.raw, aabb)
     offset = aabb[0] * voxeldata.voxel_dimensions
     voxeldata.offset = voxeldata.offset + offset
@@ -250,6 +237,8 @@ def add_margin(voxel_data, margin=5):
             The offset is adjusted accordingly.
 
     """
+    if margin < 0:
+        raise ValueError(f'Expected non-negative margin argument. Got {margin}.')
     raw = _add_margin(voxel_data.raw, margin)
     offset = voxel_data.offset - margin * voxel_data.voxel_dimensions
     return voxcell.VoxelData(raw, voxel_data.voxel_dimensions, offset)
