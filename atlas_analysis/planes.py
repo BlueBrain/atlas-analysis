@@ -276,7 +276,7 @@ def _clusterize_cloud(cloud, max_length=25):
      """
     clustered = []
     cloud = np.asarray(cloud)
-    tree = cKDTree(cloud)
+    tree = cKDTree(cloud)  # pylint: disable=not-callable
     to_skip = set()
     neighbors_groups = tree.query_ball_point(cloud, max_length)
     for neighbors in neighbors_groups:
@@ -307,7 +307,7 @@ def _create_graph(cloud, link_distance=500):  # pylint: disable=too-many-locals
     graph = networkx.Graph()
     cloud = np.asarray(cloud)
 
-    tree = cKDTree(cloud)
+    tree = cKDTree(cloud)  # pylint: disable=not-callable
 
     for node_id, point in enumerate(cloud):
         indices = tree.query_ball_point(point, link_distance)

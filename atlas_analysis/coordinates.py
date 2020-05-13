@@ -175,7 +175,7 @@ def _clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
     # points projected on the plane coordinates
     coords = np.array(_plane_basis_projection(points, loc, rot))
 
-    tree = cKDTree(coords)
+    tree = cKDTree(coords)  # pylint: disable=not-callable
 
     to_keep, to_skip = list(), set()
 
@@ -630,7 +630,7 @@ def creates(brain_regions_path, plane_centerline_path, nb_interplane, radial_tra
                                              radial_transverse_sampling)
     L.info('Point indexing done')
     L.info(sampled_points.shape)
-    tree = cKDTree(sampled_points[:, :3])
+    tree = cKDTree(sampled_points[:, :3])  # pylint: disable=not-callable
     L.info('Tree done')
     _fill_atlases(locs, planes, tree, brain_regions_path, sampled_points, new_brain_region_raw,
                   orients,
