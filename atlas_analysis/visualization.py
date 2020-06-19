@@ -1,10 +1,15 @@
 """ Collection of free functions to visualize atlases and derived files
 """
+import logging
+import warnings
 import numpy as np
 from skimage.transform import downscale_local_mean
 import plotly.graph_objects as go
 
 from atlas_analysis import AtlasAnalysisError
+
+L = logging.getLogger(__name__)
+logging.captureWarnings(True)
 
 # Flatmap
 
@@ -15,25 +20,26 @@ def downscale(raw, resolution):
 
     Args:
         raw(numpy.ndarray): bool|int|float 2D array.
-        resolution(int): number of pixels requested for the width
-            of the downscaled array. The height is downscaled
-            using the same scaling factor.
-            The aspect ratio is thus preserved, 'as musch as possible'.
-            (The aspect ratio is left unchanged only if the uniform
-            scaling factor divides both dimensions).
+        resolution(int): number of pixels requested for the width of the downscaled array. The
+             height is downscaled using the same scaling factor. The aspect ratio is thus
+             preserved, 'as musch as possible'. (The aspect ratio is left unchanged only if the
+             uniform scaling factor divides both dimensions).
     Returns:
         2D float numpy.narray
     Raises:
-        AtlasAnalysisError if `resolution` is larger than `raw.shape[0]`,
-        i.e., the user wrongly requested an upscale.
+        AtlasAnalysisError if `resolution` is larger than `raw.shape[0]`, i.e., the user wrongly
+         requested an upscale.
     """
     assert isinstance(resolution, int) and resolution > 0
     scaling_factor = raw.shape[0] // resolution
     if scaling_factor == 0:
-        raise AtlasAnalysisError(
-            'The requested resolution exceeds the length '
-            ' along the x-axis of the array to downscale.'
+        warnings.warn(
+            'The requested resolution exceeds the length along the x-axis of the array to '
+            f'downscale:\n resolution: {resolution}, length: {raw.shape[0]}.\n'
+            'Using full length resolution.',
+            UserWarning,
         )
+        return raw
     return downscale_local_mean(raw, (scaling_factor, scaling_factor))
 
 
@@ -113,6 +119,12 @@ def flatmap_image_figure(voxeldata, resolution=None):
     image = compute_flatmap_image(voxeldata.raw)
     if resolution is not None:
         image = downscale(image, resolution)
+    # Boolean arrays are not rendered properly by go.Heatmap.
+    if image.dtype == 'bool':
+        image = image.astype(int)
+
+    L.info(f'Flatmap image dimensions: {image.shape}')
+
     return go.Figure(data=go.Heatmap(z=image))
 
 

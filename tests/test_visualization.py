@@ -1,3 +1,7 @@
+'''
+Unit tests of the visualization module.
+'''
+import warnings
 import numpy.testing as npt
 import numpy as np
 
@@ -12,6 +16,16 @@ def test_downscale():
     raw = np.array([[1, 2, 3, 4], [0, 2, 3, 4],])
     result = tested.downscale(raw, 1)
     npt.assert_array_equal(result, [[5.0 / 4.0, 14.0 / 4.0]])
+
+
+def test_downscale_warning():
+    raw = np.array([[1, 2, 3, 4], [0, 2, 3, 4],])
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        result = tested.downscale(raw, 5)
+        assert issubclass(w[-1].category, UserWarning)
+        assert 'resolution' in str(w[-1].message)
+        npt.assert_array_equal(result, raw)
 
 
 def test_compute_flatmap_image():
@@ -72,11 +86,7 @@ def test_flatmap_image_figure():
     figure = tested.flatmap_image_figure(VoxelData(flatmap_raw, [10.0] * 3))
     npt.assert_array_equal(
         figure['data'][0]['z'],
-        [
-            [False, False, False, False, False, True],
-            [False, True, True, False, False, True],
-            [True, True, True, False, False, False],
-        ],
+        [[0, 0, 0, 0, 0, 1], [0, 1, 1, 0, 0, 1], [1, 1, 1, 0, 0, 0],],
     )
     # Downscaled to shape (1, 2)
     figure = tested.flatmap_image_figure(
@@ -100,5 +110,7 @@ def test_flatmap_volume_histogram():
         [[0, 0, 0, 0, 0, 2], [0, 1, 3, 0, 0, 1], [1, 4, 1, 0, 0, 0],],
     )
     # Downscaled to shape (1, 2)
-    figure = tested.flatmap_volume_histogram(VoxelData(flatmap_raw, [10.0] * 3), resolution=1)
+    figure = tested.flatmap_volume_histogram(
+        VoxelData(flatmap_raw, [10.0] * 3), resolution=1
+    )
     npt.assert_array_equal(figure['data'][0]['z'], [[10.0 / 9.0, 1.0 / 3.0]])
