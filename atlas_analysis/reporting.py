@@ -315,10 +315,10 @@ class Histogram:
                 edge = None
                 try:
                     edge = int(key)
-                except ValueError as e:
+                except ValueError as error:
                     raise AtlasAnalysisError(
-                        error_message + 'Unknown non-integer key {}. {}'.format(key, e)
-                    )
+                        error_message + 'Unknown non-integer key {}. {}'.format(key, error)
+                    ) from error
                 bin_edges.append(edge)
 
         # Few more validity checks
@@ -672,7 +672,7 @@ class VoxelCountReport(VoxelDataReport):
 
     For an output example of the to_dict() method, see tests/test_reporting.py.
     """
-
+    # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         header,
@@ -682,6 +682,7 @@ class VoxelCountReport(VoxelDataReport):
         region_counts,
         connectivity=None,
         cavities=None,
+        region_map=None,
     ):
         """
         Args:
@@ -692,6 +693,8 @@ class VoxelCountReport(VoxelDataReport):
                 Identifiers are strings representing integers.
                 Strings were preferred to integers because the json output format
                 only supports string keys.
+            region_counts(dict): dict whose keys are leaf region identifiers (str)
+                and whose values are RegionVoxelCountReport instances.
             connectivity(ConnectivityReport): (optional) report on the connectivity
                 of the VoxelData object.
                 It indicates in particular the number of connected components
@@ -700,8 +703,7 @@ class VoxelCountReport(VoxelDataReport):
                 It indicates in particular the count of cavity voxels.
                 A cavity is a hole nested in a thick part of a volume.
                 Defaults to None.
-            region_counts(dict): dict whose keys are leaf region identifiers (str)
-                and whose values are RegionVoxelCountReport instances.
+            region_map(voxcell.RegionMap): an object to navigate the brain regions hierarchy.
 
         Attributes:
             voxel_count(int): input voxel_count
@@ -710,7 +712,9 @@ class VoxelCountReport(VoxelDataReport):
             connectivity(ConnectivityReport): input connectivity
             cavities(CavitiyReport): input cavities
             region_counts(dict): input region_counts
+            region_map(voxcell.RegionMap): input region map
         """
+        # pylint: disable=too-many-instance-attributes
         self.header = header
         self.voxel_count = voxel_count
         self.non_zero_voxel_count = non_zero_voxel_count
@@ -718,6 +722,7 @@ class VoxelCountReport(VoxelDataReport):
         self.region_counts = region_counts
         self.connectivity = connectivity
         self.cavities = cavities
+        self.region_map = region_map
 
     @classmethod
     def from_voxel_data(cls, voxel_data, **kwargs):
@@ -761,6 +766,7 @@ class VoxelCountReport(VoxelDataReport):
             region_counts,
             connectivity,
             cavities,
+            region_map=kwargs.get('region_map', None),
         )
 
     def to_dict(self):
@@ -777,6 +783,14 @@ class VoxelCountReport(VoxelDataReport):
             'region_list': self.region_list,
             'region_counts': region_counts_dict,
         }
+        if self.region_map is not None:
+            dictionary['region_map'] = {
+                id_: {
+                    'acronym': self.region_map.get(int(id_), 'acronym'),
+                    'name': self.region_map.get(int(id_), 'name'),
+                }
+                for id_ in self.region_list
+            }
         if self.connectivity is not None:
             dictionary['connectivity'] = self.connectivity.to_dict()
         if self.cavities is not None:
