@@ -62,7 +62,7 @@ import logging
 from collections import namedtuple
 
 import vtk
-from vtk.util.numpy_support import vtk_to_numpy
+from vtk.util.numpy_support import vtk_to_numpy  # pylint: disable=import-error, no-name-in-module
 from pathos.multiprocessing import ProcessingPool
 
 import numpy as np

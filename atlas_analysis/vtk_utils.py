@@ -4,7 +4,7 @@ from vtk import (vtkPoints, vtkCutter,
                  vtkParametricSpline, vtkPolyData, vtkDelaunay3D,
                  vtkGeometryFilter, vtkSTLWriter,
                  vtkImageData, VTK_UNSIGNED_CHAR, vtkMarchingCubes, vtkSTLReader)
-from vtk.util import numpy_support
+from vtk.util import numpy_support  # pylint: disable=import-error
 
 
 def convert_points_to_vtk(points):

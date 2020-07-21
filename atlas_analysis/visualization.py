@@ -6,8 +6,6 @@ import numpy as np
 from skimage.transform import downscale_local_mean
 import plotly.graph_objects as go
 
-from atlas_analysis import AtlasAnalysisError
-
 L = logging.getLogger(__name__)
 logging.captureWarnings(True)
 
@@ -123,7 +121,7 @@ def flatmap_image_figure(voxeldata, resolution=None):
     if image.dtype == 'bool':
         image = image.astype(int)
 
-    L.info(f'Flatmap image dimensions: {image.shape}')
+    L.info('Flatmap image dimensions: %s', image.shape)
 
     return go.Figure(data=go.Heatmap(z=image))
 
