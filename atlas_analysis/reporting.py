@@ -315,10 +315,10 @@ class Histogram:
                 edge = None
                 try:
                     edge = int(key)
-                except ValueError as e:
+                except ValueError as error:
                     raise AtlasAnalysisError(
-                        error_message + 'Unknown non-integer key {}. {}'.format(key, e)
-                    )
+                        error_message + 'Unknown non-integer key {}. {}'.format(key, error)
+                    ) from error
                 bin_edges.append(edge)
 
         # Few more validity checks
