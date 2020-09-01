@@ -15,7 +15,7 @@ import voxcell
 
 from atlas_analysis.vtk_utils import load_stl
 from atlas_analysis.utils import ensure_list
-from atlas_analysis.planes import load_planes_centerline
+from atlas_analysis.planes.planes import load_planes_centerline
 
 
 def _line_actor(points, lines):

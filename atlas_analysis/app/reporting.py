@@ -107,8 +107,17 @@ def write_density_report(
     ' Defaults to False, i.e, no cavity reporting.',
     default=False,
 )
+@click.option(
+    '-j',
+    '--hierarchy-path',
+    help='(Optional) Path to the hierarchy json file. If provided, the acronym '
+    ' of the brain regions will be displayed in addition to the region identifiers.',
+    default=False,
+)
 @log_args(L)
-def write_voxel_count_report(input_path, output_path, connectivity, cavity):
+def write_voxel_count_report(
+    input_path, output_path, connectivity, cavity, hierachy_path
+):
     """ Write a report file containing voxel counts per region.
 
     Write a report in json format including:
@@ -130,6 +139,9 @@ def write_voxel_count_report(input_path, output_path, connectivity, cavity):
 
     voxel_data = voxcell.VoxelData.load_nrrd(input_path)
     report = reporting.VoxelCountReport.from_voxel_data(
-        voxel_data, connectivity_is_required=connectivity, cavities_are_required=cavity
+        voxel_data,
+        connectivity_is_required=connectivity,
+        cavities_are_required=cavity,
+        region_map=voxcell.RegionMap.load_json(hierachy_path),
     )
     report.save_as(output_path)

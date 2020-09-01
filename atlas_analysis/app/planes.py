@@ -3,7 +3,7 @@ import logging
 
 import click
 
-import atlas_analysis.planes as planes
+import atlas_analysis.planes.planes as planes
 from atlas_analysis.app.utils import split_str, log_args, set_verbose, FILE_TYPE
 
 L = logging.getLogger("planes")
@@ -45,15 +45,37 @@ def app(verbose):
 @click.option('--seed', type=int,
               help='The pseudo random generator seed',
               default=42)
+@click.option('--plane_format', type=str,
+              help='Output plane format. Either \'quaternion\' or \'equation\'. '
+              ' If the format is \'quaternion\', then each plane P of the output sequence is'
+              ' encoded with 7 float numbers [x, y, z, a, b, c, d].'
+              ' The vector (x, y, z) represents the 3D coordinates of'
+              ' the intersection of the centerline with P. The (a, b, c, d)-part is a'
+              ' unit quaternion q complying with the convention w, x, y, z. The quaternion'
+              ' q = w + x * i + y * j + z * k is such that q maps ZVECTOR = (0, 0, 1) to a normal'
+              ' vector of P, i.e., qkq^{-1} = n_x * i + n_y * j + n_z * k where'
+              ' (n_x, n_y, n_z) is a normal unit vector of P.'
+              ' (See https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation).'
+              ' If the format is \'equation\', each output plane P is encoded with 7 float numbers'
+              ' [x, y, z, A, B, C, D] where (x, y, z) represents the 3D coordinates of'
+              ' the intersection of P with the centerline and A * X + B * Y + C * Z = D'
+              ' is an equation of P, (A, B, C) being a unit normal vector.'
+              ' By default the format is \'quaternion\'.',
+              default='quaternion')
 @log_args(L)
 def create(nrrd_path, output, start, end, downhill, chain_length, chain_count, sampling,
-           link_distance, plane_count, seed):
+           link_distance, plane_count, seed, plane_format):
     """ Run the plane creation for a given atlas (brain_region nrrd file).
 
     This function creates the centerline of the input volume together with
     a series of planes orthogonal to this curve. The number of planes to create
     is specified with the plane_count argument. The output of the function is an .npz file
     bearing the specified name. This file can be loaded subsequently with numpy.load().
+
+    The loaded numpy output has the structure of a dict. The value corresponding to 'centerline'
+     is a float array of shape (N, 3) representing the N points of the center line.
+    The value corresponding 'planes' is a float array either of shape (N, 7) or (N, 4) depending
+     on whether the specified output plane format is 'quaternion' or 'equation'.
 
     Notes:\n
         The algorithm will do the following steps
@@ -96,15 +118,21 @@ def create(nrrd_path, output, start, end, downhill, chain_length, chain_count, s
                                     downhill=downhill, chain_length=chain_length,
                                     chain_count=chain_count,
                                     sampling=sampling, link_distance=link_distance,
-                                    plane_count=plane_count, seed=seed)
+                                    plane_count=plane_count, seed=seed, plane_format=plane_format)
 
 
 @app.command()
 @click.argument('nrrd_path', type=FILE_TYPE)
 @click.argument('preprocess_path', type=FILE_TYPE)
-@click.option('-n', '--name', type=str, help='The data set name', required=True)
+@click.option(
+    '-n',
+    '--name',
+    type=str,
+    help='The display name of the nrrd volume to plot',
+    required=True,
+)
 def draw(nrrd_path, preprocess_path, name):
-    """ Draw the result of the plane creation on top of the atlas.
+    """ Draw the centerline and a series of orthogonal planes on top of the atlas.
 
       Usage: atlas-analysis planes draw [OPTIONS] NRRD_PATH PREPROCESS_PATH\n
       Draw the centerline and its orthogonal planes on top of the

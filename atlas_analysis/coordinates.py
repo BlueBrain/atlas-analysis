@@ -73,13 +73,23 @@ import voxcell
 
 from atlas_analysis.atlas import sample_positions_from_voxeldata
 from atlas_analysis.maths import normalize_vector
-from atlas_analysis.vtk_utils import (create_vtk_spline, update_vtk_plane,
-                                      create_cutter_from_stl)
-from atlas_analysis.utils import (pairwise, save_raw)
-from atlas_analysis.planes import (split_plane_elements, get_plane_quaternion,
-                                   load_planes_centerline, add_interpolated_planes,
-                                   distances_to_planes, get_normal)
-from atlas_analysis.constants import (X, Y, Z, YVECTOR, ZVECTOR, XVECTOR)
+from atlas_analysis.vtk_utils import (
+    create_vtk_spline,
+    update_vtk_plane,
+    create_cutter_from_stl,
+)
+from atlas_analysis.utils import pairwise, save_raw
+from atlas_analysis.planes.maths import (
+    distances_to_planes,
+    get_plane_quaternion,
+    get_normal,
+    split_plane_elements,
+)
+from atlas_analysis.planes.planes import (
+    load_planes_centerline,
+    add_interpolated_planes,
+)
+from atlas_analysis.constants import X, Y, Z, YVECTOR, ZVECTOR, XVECTOR
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 L = logging.getLogger(__name__)
@@ -87,12 +97,12 @@ L = logging.getLogger(__name__)
 Layer = namedtuple('Layer', ['name', 'ratio', 'raw'])
 
 
-def _cut_shell(origin, quat, vtk_plane, vtk_cutter, radius=2500.):
+def _cut_shell(origin, quat, vtk_plane, vtk_cutter, radius=2500.0):
     """Cut a shell mesh using a vtkCutter according to a loc and a quaternion.
 
     Args:
         origin(np.array): a position in 3d that defines the center of the plane (array([x1 ,y1, z1])
-        quat(Quaternion): a Quaternion that defined the orientation of the plane
+        quat(Quaternion): a Quaternion defining the orientation of the plane
         vtk_plane(vtkPlane): a vtkPlane that will be update using loc and quat
         vtk_cutter(vtkCutter): a vtkCutter that includes the mesh to cut
         radius(float): a l2 distance from loc to points to filter points (float)
@@ -112,7 +122,9 @@ def _cut_shell(origin, quat, vtk_plane, vtk_cutter, radius=2500.):
 
     dists = np.linalg.norm(pos - origin, axis=1)
     pos = pos[dists < radius]
-    pos = pos[pos[:, 0].argsort()]  # TODO: change this and use the principal direction instead
+    pos = pos[
+        pos[:, 0].argsort()
+    ]  # TODO: change this and use the principal direction instead
     return pos
 
 
@@ -233,7 +245,7 @@ def _global_sampling(upper_spline, lower_spline, nb_steps):
     ptu = [0, 0, 0]
     ptl = [0, 0, 0]
     d = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    u = [0., 0., 0.]
+    u = [0.0, 0.0, 0.0]
     pos_all = []
     for i, step in enumerate(steps):
         u[0] = step
@@ -459,7 +471,9 @@ def _get_quaternion_t_r_h_layers(point_rot_long, tree, sampled_points, layer_rat
     point = point_rot_long[0]
     rot = point_rot_long[1]
     long = point_rot_long[2]
-    coords = _get_coordinates(point, tree, sampled_points)  # [x,y,z,r,t,vectx,vecty,vectz]
+    coords = _get_coordinates(
+        point, tree, sampled_points
+    )  # [x,y,z,r,t,vectx,vecty,vectz]
     # transverse vector
     r = coords[3]
     t = coords[4]
@@ -500,8 +514,19 @@ def _initialize_raw(brain_regions, add_dim, dtype=np.float32, value=-1):
     return layer_array
 
 
-def _fill_atlases(points, planes, tree, brain_regions, sampled_points,
-                  new_brain_regions, orients, coordinates, heights, layers):
+def _fill_atlases(
+    points,
+    planes,
+    tree,
+    brain_regions,
+    sampled_points,
+    new_brain_regions,
+    orients,
+    coordinates,
+    heights,
+    layers,
+    layer_ids=None,
+):
     """Fills orientations for all point in points.
 
     Args:
@@ -517,6 +542,10 @@ def _fill_atlases(points, planes, tree, brain_regions, sampled_points,
         coordinates: atlas containing the natural coordinates
         heights: atlas containing the y information
         layers: the list of Layer object from upper shell to lower shell
+        layer_ids: (Optional) list of integers identifying the layers, e.g., the AIBS structure
+            ids. If specified, it should have the same length as `layers`.
+            Defaults to None. In this case, the identifier assigned to a layer
+            is its index augmented by one.
     """
     # pylint: disable=too-many-locals
     # Hack to avoid partial for Pool.map
@@ -539,22 +568,26 @@ def _fill_atlases(points, planes, tree, brain_regions, sampled_points,
 
     layer_ratios = np.array([layer.ratio for layer in layers])
     layer_ratio_cum = np.cumsum(layer_ratios)
-    layer_ratio_cum[-1] = 1.
-    layer_ratio_limits = np.array(list(pairwise([0.] + list(layer_ratio_cum))))
+    layer_ratio_cum[-1] = 1.0
+    layer_ratio_limits = np.array(list(pairwise([0.0] + list(layer_ratio_cum))))
 
     L.debug('limits of layer ratios %s', layer_ratio_limits)
 
     point_rot_longs = list(zip(new_points, rots, longs))
 
     def local_get_quaternion_t_r_h_layers(point_rot_long):
-        return _get_quaternion_t_r_h_layers(point_rot_long, tree, sampled_points, layer_ratios)
+        return _get_quaternion_t_r_h_layers(
+            point_rot_long, tree, sampled_points, layer_ratios
+        )
 
     L.info("Start transverse/radial orientation computing")
     t = ProcessingPool().map(local_get_quaternion_t_r_h_layers, point_rot_longs)
 
     L.info("Transverse/radial orientation is done")
     for loc, quat, l, t, r, h, layer_limits in t:
-        layer_idx = np.argmax(((r >= layer_ratio_limits[:, 0]) & (r <= layer_ratio_limits[:, 1])))
+        layer_idx = np.argmax(
+            ((r >= layer_ratio_limits[:, 0]) & (r <= layer_ratio_limits[:, 1]))
+        )
 
         idx = brain_regions.positions_to_indices(loc)
         idx = tuple(idx) + (Ellipsis,)
@@ -565,7 +598,9 @@ def _fill_atlases(points, planes, tree, brain_regions, sampled_points,
         heights[idx] = h
         for ll, layer in enumerate(layers):
             layer.raw[idx] = list(layer_limits[ll])
-        new_brain_regions[idx] = layer_idx + 1
+        new_brain_regions[idx] = (
+            layer_idx + 1 if layer_ids is None else layer_ids[layer_idx]
+        )
 
 
 def _create_layers(sizes, names, brain_regions, value=np.nan):
@@ -584,12 +619,29 @@ def _create_layers(sizes, names, brain_regions, value=np.nan):
     tot_size = sum(sizes)
     for i, name in enumerate(names):
         layers.append(
-            Layer(name, sizes[i] / tot_size, _initialize_raw(brain_regions, 2, value=value)))
+            Layer(
+                name,
+                sizes[i] / tot_size,
+                _initialize_raw(brain_regions, 2, value=value),
+            )
+        )
     return layers
 
 
-def creates(brain_regions_path, plane_centerline_path, nb_interplane, radial_transverse_sampling,
-            sizes, names, upper_file, lower_file, sampling, output_dir, seed=42):
+def creates(
+    brain_regions_path,
+    plane_centerline_path,
+    nb_interplane,
+    radial_transverse_sampling,
+    sizes,
+    names,
+    upper_file,
+    lower_file,
+    sampling,
+    output_dir,
+    seed=42,
+    layer_ids=None,
+):
     """Creates the coordinate system and the atlases.
 
     Args:
@@ -605,6 +657,10 @@ def creates(brain_regions_path, plane_centerline_path, nb_interplane, radial_tra
         sampling(int): number of voxels to sample inside the brain region atlas.
         output_dir(str): path to the directory that will contain the created atlases.
         seed(int): the value of the pseudo-random generator.
+        layer_ids(list): layer_ids: (Optional) list of integers identifying the
+            layers, e.g., the AIBS structure ids. If specified, it should have the same length as
+            `names`. Defaults to None. In this case, the identifier assigned to a layer
+            is its index augmented by one.
     """
     # pylint: disable=too-many-locals
     np.random.seed(seed)  # seed for sampling
@@ -617,7 +673,9 @@ def creates(brain_regions_path, plane_centerline_path, nb_interplane, radial_tra
     coordinates = _initialize_raw(brain_regions_path, 3)
     heights = _initialize_raw(brain_regions_path, 0, value=np.nan)
     layers = _create_layers(sizes, names, brain_regions_path, value=np.nan)
-    new_brain_region_raw = _initialize_raw(brain_regions_path, 0, dtype=np.int32, value=0)
+    new_brain_region_raw = _initialize_raw(
+        brain_regions_path, 0, dtype=np.int32, value=0
+    )
 
     locs = sample_positions_from_voxeldata(brain_regions_path, voxel_count=nb_points)
     L.info('Running %i points', len(locs))
@@ -626,25 +684,45 @@ def creates(brain_regions_path, plane_centerline_path, nb_interplane, radial_tra
     lower_cutter = create_cutter_from_stl(lower_file)
     planes_interp = add_interpolated_planes(planes, nb_interplane)
 
-    sampled_points = _create_spline_indexing(planes_interp, upper_cutter, lower_cutter,
-                                             radial_transverse_sampling)
+    sampled_points = _create_spline_indexing(
+        planes_interp, upper_cutter, lower_cutter, radial_transverse_sampling
+    )
     L.info('Point indexing done')
     L.info(sampled_points.shape)
     tree = cKDTree(sampled_points[:, :3])  # pylint: disable=not-callable
     L.info('Tree done')
-    _fill_atlases(locs, planes, tree, brain_regions_path, sampled_points, new_brain_region_raw,
-                  orients,
-                  coordinates, heights, layers)
+    _fill_atlases(
+        locs,
+        planes,
+        tree,
+        brain_regions_path,
+        sampled_points,
+        new_brain_region_raw,
+        orients,
+        coordinates,
+        heights,
+        layers,
+        layer_ids,
+    )
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
-    save_raw(os.path.join(output_dir, 'orientation.nrrd'), orients, brain_regions_path,
-             is_orientation=True)
-    save_raw(os.path.join(output_dir, 'coordinates.nrrd'), coordinates, brain_regions_path)
+    save_raw(
+        os.path.join(output_dir, 'orientation.nrrd'),
+        orients,
+        brain_regions_path,
+        is_orientation=True,
+    )
+    save_raw(
+        os.path.join(output_dir, 'coordinates.nrrd'), coordinates, brain_regions_path
+    )
     save_raw(os.path.join(output_dir, '[PH]y.nrrd'), heights, brain_regions_path)
     for layer in layers:
         file_name = '[PH]' + layer.name + '.nrrd'
         save_raw(os.path.join(output_dir, file_name), layer.raw, brain_regions_path)
-    save_raw(os.path.join(output_dir, 'brain_regions.nrrd'), new_brain_region_raw,
-             brain_regions_path)
+    save_raw(
+        os.path.join(output_dir, 'brain_regions.nrrd'),
+        new_brain_region_raw,
+        brain_regions_path,
+    )

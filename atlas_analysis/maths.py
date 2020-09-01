@@ -1,6 +1,5 @@
 """ Maths utilities """
 import numpy as np
-from atlas_analysis.constants import ZVECTOR
 
 
 def normalize_vectors(vectors):
@@ -19,8 +18,3 @@ def normalize_vectors(vectors):
 def normalize_vector(vector):
     """ Return a normalize vector (a bit faster for one vector than normalize_vectors) """
     return vector / np.linalg.norm(vector)
-
-
-def get_normal(rot):
-    """Returns the normal of the oriented plane obtained using the quaternion rot """
-    return rot.rotate(ZVECTOR)

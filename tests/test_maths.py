@@ -1,6 +1,5 @@
 import numpy.testing as npt
 import numpy as np
-from pyquaternion import Quaternion
 
 import atlas_analysis.maths as tested
 
@@ -27,9 +26,3 @@ def test_normalize_vector():
         res = tested.normalize_vector(vector)
         npt.assert_allclose(res, exp)
 
-
-def test_get_normal():
-    expected = [0, -1, 0]
-    a = Quaternion(1, 1, 0, 0)
-    res = tested.get_normal(a)
-    npt.assert_allclose(res, expected)
