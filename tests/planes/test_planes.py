@@ -1,3 +1,6 @@
+'''
+Unit tests of the planes module
+'''
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -7,18 +10,18 @@ import numpy as np
 import networkx
 
 import atlas_analysis.planes.planes as tested
-from atlas_analysis.planes.maths import equation_format_to_quaternion
+from atlas_analysis.planes.maths import Plane
 from atlas_analysis.exceptions import AtlasAnalysisError
 
-from utils import create_rectangular_shape
+from tests.utils import create_rectangular_shape
 
 
 def test_add_interpolated_planes():
     qv = 0.5
     planes = [
-        [0, 0, 0, qv, qv, qv, qv],
-        [1, 1, 1, qv, qv, qv, qv],
-        [2, 2, 2, qv, qv, qv, qv],
+        Plane.from_quaternion([0, 0, 0], [qv, qv, qv, qv]),
+        Plane.from_quaternion([1, 1, 1], [qv, qv, qv, qv]),
+        Plane.from_quaternion([2, 2, 2], [qv, qv, qv, qv]),
     ]
 
     interplane_count = 2
@@ -26,24 +29,27 @@ def test_add_interpolated_planes():
     expected_length = interplane_count * (len(planes) - 1) + len(planes)
     nt.assert_equal(len(extended_planes), expected_length)
 
-    planes = np.array(planes)
-    extended_planes = np.array(extended_planes)
+    scalars = np.diag(np.linspace(0, 2, num=expected_length))
+    expected_points = np.matmul(scalars, np.ones((expected_length, 3)))
+    quaternion = planes[0].get_quaternion().elements
+    expected_quaternions = [quaternion] * expected_length
 
-    gaps = (planes[-1, :3] - planes[0, :3]) / (expected_length - 1)
-    xyz_expected = np.indices((expected_length, 3))[0] * gaps
+    npt.assert_allclose([plane.point for plane in extended_planes], expected_points)
+    npt.assert_allclose(
+        [plane.get_quaternion().elements for plane in extended_planes],
+        expected_quaternions,
+    )
 
-    q_expected = np.ones((expected_length, 3)) * qv
-    npt.assert_allclose(extended_planes[:, :3], xyz_expected)
-    npt.assert_allclose(extended_planes[:, 4:], q_expected)
-
-    npt.assert_allclose(tested.add_interpolated_planes(planes, 0), planes)
+    actual = tested.add_interpolated_planes(planes, 0)
+    actual = [plane.to_numpy() for plane in actual]
+    npt.assert_allclose(actual, [plane.to_numpy() for plane in planes])
 
 
 def test_save_planes_centerline():
     planes = [
-        [0, 0, 0, 1, 0, 1, 0],
-        [0, 0, 0, 1, 1, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1],
+        Plane.from_quaternion([0, 0, 0], [1, 0, 1, 0]),
+        Plane.from_quaternion([0, 0, 0], [1, 1, 0, 0]),
+        Plane.from_quaternion([0, 0, 0], [1, 0, 0, 1]),
     ]
     centerline = [[0, 0, 0], [1, 1, 1], [2, 2, 2], [3, 3, 3]]
     with TemporaryDirectory() as directory:
@@ -64,7 +70,7 @@ def test_save_planes_centerline():
         assert 'planes' in data
         nt.assert_equal(data['plane_format'], 'equation')
 
-    with nt.assert_raises(AssertionError):
+    with nt.assert_raises(AtlasAnalysisError):
         tested.save_planes_centerline(
             Path(directory, 'test.npz'),
             planes,
@@ -75,9 +81,9 @@ def test_save_planes_centerline():
 
 def test_load_planes_centerline():
     expected_planes = [
-        [0, 0, 0, 1, 0, 1, 0],
-        [0, 0, 0, 1, 1, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1],
+        Plane.from_quaternion([0, 0, 0], [1, 0, 1, 0]),
+        Plane.from_quaternion([0, 0, 0], [1, 1, 0, 0]),
+        Plane.from_quaternion([0, 0, 0], [1, 0, 0, 1]),
     ]
     expected_centerline = [[0, 0, 0], [1, 1, 1], [2, 2, 2], [3, 3, 3]]
     # Implicit quaternionic format (for backward compatibility)
@@ -85,39 +91,13 @@ def test_load_planes_centerline():
         filepath = tested.save_planes_centerline(
             Path(directory, 'test.npz'), expected_planes, expected_centerline
         )
-        res_planes, res_centerline, plane_format = tested.load_planes_centerline(
-            filepath
+        res_planes = tested.load_planes_centerline(filepath)
+        npt.assert_almost_equal(
+            [plane.to_numpy() for plane in res_planes['planes']],
+            [plane.to_numpy() for plane in expected_planes],
         )
-        npt.assert_almost_equal(res_planes, expected_planes)
-        npt.assert_almost_equal(res_centerline, expected_centerline)
-        nt.assert_equal(plane_format, 'quaternion')
-
-        res_planes = tested.load_planes_centerline(filepath, "planes")
-        npt.assert_almost_equal(res_planes, expected_planes)
-
-        res_centerline = tested.load_planes_centerline(filepath, "centerline")
-        npt.assert_almost_equal(res_centerline, expected_centerline)
-
-        plane_format = tested.load_planes_centerline(filepath, "plane_format")
-        nt.assert_equal(plane_format, 'quaternion')
-
-        res_planes, res_centerline, plane_format = tested.load_planes_centerline(
-            filepath, ["planes", "centerline", "plane_format"]
-        )
-        npt.assert_almost_equal(res_planes, expected_planes)
-        npt.assert_almost_equal(res_centerline, expected_centerline)
-        nt.assert_equal(plane_format, 'quaternion')
-
-        res_centerline, res_planes = tested.load_planes_centerline(
-            filepath, ["centerline", "planes"]
-        )
-        npt.assert_almost_equal(res_planes, expected_planes)
-        npt.assert_almost_equal(res_centerline, expected_centerline)
-
-        with nt.assert_raises(AtlasAnalysisError):
-            tested.load_planes_centerline(filepath, "asd")
-        with nt.assert_raises(AtlasAnalysisError):
-            tested.load_planes_centerline(filepath, ["asd", "centerline"])
+        npt.assert_almost_equal(res_planes['centerline'], expected_centerline)
+        nt.assert_equal(res_planes['plane_format'], 'quaternion')
 
     # Explicit quaternionic format
     with TemporaryDirectory() as directory:
@@ -125,24 +105,15 @@ def test_load_planes_centerline():
             Path(directory, 'test.npz'),
             expected_planes,
             expected_centerline,
-            plane_format="quaternion",
+            plane_format='quaternion',
         )
-        res_planes, res_centerline, plane_format = tested.load_planes_centerline(
-            filepath
+        res_planes = tested.load_planes_centerline(filepath)
+        npt.assert_almost_equal(
+            [plane.to_numpy() for plane in res_planes['planes']],
+            [plane.to_numpy() for plane in expected_planes],
         )
-        npt.assert_almost_equal(res_planes, expected_planes)
-        npt.assert_almost_equal(res_centerline, expected_centerline)
-        nt.assert_equal(plane_format, 'quaternion')
-
-        plane_format = tested.load_planes_centerline(filepath, "plane_format")
-        nt.assert_equal(plane_format, 'quaternion')
-
-        res_planes, res_centerline, plane_format = tested.load_planes_centerline(
-            filepath, ["planes", "centerline", "plane_format"]
-        )
-        npt.assert_almost_equal(res_planes, expected_planes)
-        npt.assert_almost_equal(res_centerline, expected_centerline)
-        nt.assert_equal(plane_format, 'quaternion')
+        npt.assert_almost_equal(res_planes['centerline'], expected_centerline)
+        nt.assert_equal(res_planes['plane_format'], 'quaternion')
 
     # Explicit equation format
     with TemporaryDirectory() as directory:
@@ -152,22 +123,25 @@ def test_load_planes_centerline():
             expected_centerline,
             plane_format="equation",
         )
-        res_planes, res_centerline, plane_format = tested.load_planes_centerline(
-            filepath
+        res_planes = tested.load_planes_centerline(filepath)
+        npt.assert_almost_equal(
+            [plane.to_numpy() for plane in res_planes['planes']],
+            [plane.to_numpy() for plane in expected_planes],
         )
-        npt.assert_almost_equal(res_planes, expected_planes)
-        npt.assert_almost_equal(res_centerline, expected_centerline)
-        nt.assert_equal(plane_format, 'equation')
+        npt.assert_almost_equal(res_planes['centerline'], expected_centerline)
+        nt.assert_equal(res_planes['plane_format'], 'equation')
 
-        plane_format = tested.load_planes_centerline(filepath, "plane_format")
-        nt.assert_equal(plane_format, 'equation')
-
-        res_planes, res_centerline, plane_format = tested.load_planes_centerline(
-            filepath, ["planes", "centerline", "plane_format"]
+    # Wrong format
+    with TemporaryDirectory() as directory:
+        filepath = str(Path(directory, 'test.npz'))
+        np.savez(
+            filepath,
+            planes=expected_planes,
+            centerline=expected_centerline,
+            plane_format=np.array('mixed', dtype=str),
         )
-        npt.assert_almost_equal(res_planes, expected_planes)
-        npt.assert_almost_equal(res_centerline, expected_centerline)
-        nt.assert_equal(plane_format, 'equation')
+        with nt.assert_raises(AtlasAnalysisError):
+            tested.load_planes_centerline(filepath)
 
 
 def test__distance_transform():
@@ -319,20 +293,20 @@ def test__create_planes():
         volume, [[1, 7, 7], [999, 7, 7]], link_distance=2, chain_length=10000
     )
     centerline = tested._smoothing(centerline)
-    res = np.array(tested._create_planes(centerline, plane_count=10))
-    res_xyz = res[:, :3]
-    y_mean_res = res_xyz.mean(axis=0)[1]
-    z_mean_res = res_xyz.mean(axis=0)[2]
+    res = tested._create_planes(centerline, plane_count=10)
+    points = np.array([plane.point for plane in res])
+    y_mean_res = points.mean(axis=0)[1]
+    z_mean_res = points.mean(axis=0)[2]
     tol = 10
     nt.ok_(np.all(np.abs(y_mean_res - 75) < tol))
     nt.ok_(np.all(np.abs(z_mean_res - 75) < tol))
     # x position wise the first point is 1*10 + 10/2 last is 999*10 + 10/2
     # planes should be close these points
-    nt.ok_(np.all(np.linspace(15, 9995, 10) - res_xyz[:, 0] < 10))
+    nt.ok_(np.all(np.linspace(15, 9995, 10) - points[:, 0] < 10))
 
     # Difficult to predict the first correct value before finding the stability
-    # remove the first amd last quaternion then
-    res_q = res[1:-1, 3:]
+    # remove the first and last quaternion then.
+    res_q = [plane.get_quaternion().elements for plane in res[1:-1]]
     expected = np.asarray([0.7071067811865475, 0, 0.7071067811865475, 0])
     tols = [0.2, 0.2, 0.2, 0.2]
     nt.ok_(np.all(np.abs(res_q - expected) < tols))
@@ -354,32 +328,32 @@ def test_create_centerline_planes():
         )
         nt.ok_(output_path.exists())
 
-        res_planes, res_centerline, plane_format = tested.load_planes_centerline(
-            output_path
-        )
-        nt.assert_equal(plane_format, 'quaternion')
+        res_planes = tested.load_planes_centerline(output_path)
+        nt.assert_equal(res_planes['plane_format'], 'quaternion')
 
-        res_xyz = res_planes[:, :3]
-        y_mean_res = res_xyz.mean(axis=0)[1]
-        z_mean_res = res_xyz.mean(axis=0)[2]
+        points = np.array([plane.point for plane in res_planes['planes']])
+        y_mean_res = points.mean(axis=0)[1]
+        z_mean_res = points.mean(axis=0)[2]
         tol = 5
         nt.ok_(abs(y_mean_res - 75) < tol)
         nt.ok_(abs(z_mean_res - 75) < tol)
         # x position wise the first point is 1*10 + 10/2 last is 999*10 + 10/2
         # planes should be close these points
-        nt.ok_(np.all(np.linspace(15, 9995, 10) - res_xyz[:, 0] < 5))
+        nt.ok_(np.all(np.linspace(15, 9995, 10) - points[:, 0] < 5))
 
         # when the chain reach stability the mean of y and z should be close to the
         # center of the volume 75 and 75 here
-        y_mean_res = res_centerline.mean(axis=0)[1]
-        z_mean_res = res_centerline.mean(axis=0)[2]
+        y_mean_res = res_planes['centerline'].mean(axis=0)[1]
+        z_mean_res = res_planes['centerline'].mean(axis=0)[2]
         tol = 5
         nt.ok_(abs(y_mean_res - 75) < tol)
         nt.ok_(abs(z_mean_res - 75) < tol)
 
         # Difficult to predict the first correct value before finding the stability
-        # remove the first and last quaternion then
-        res_q = res_planes[1:-1, 3:]
+        # remove the first and last quaternion then.
+        res_q = [
+            plane.get_quaternion().elements for plane in res_planes['planes'][1:-1]
+        ]
         expected = np.asarray([0.7071067811865475, 0, 0.7071067811865475, 0])
         tols = [0.2, 0.2, 0.2, 0.2]
         nt.ok_(np.all(np.abs(res_q - expected) < tols))
@@ -402,13 +376,14 @@ def test_create_centerline_planes_with_equation_format():
         )
         nt.ok_(output_path.exists())
 
-        res_planes, _, plane_format = tested.load_planes_centerline(output_path)
-        nt.assert_equal(plane_format, 'equation')
+        res_planes = tested.load_planes_centerline(output_path)
+        nt.assert_equal(res_planes['plane_format'], 'equation')
 
         # Difficult to predict the first correct value before finding the stability
         # remove the first and last quaternion then
-        res_q = res_planes[1:-1, :]
-        res_q = equation_format_to_quaternion(res_q)[:, 3:]
+        res_q = [
+            plane.get_quaternion().elements for plane in res_planes['planes'][1:-1]
+        ]
         expected = np.asarray([0.7071067811865475, 0, 0.7071067811865475, 0])
         tols = [0.2, 0.2, 0.2, 0.2]
         nt.ok_(np.all(np.abs(res_q - expected) < tols))

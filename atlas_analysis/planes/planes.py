@@ -1,11 +1,8 @@
 """ Module used to create planes according to a user defined main axis """
 from itertools import combinations
-import collections
 
-import six
 import numpy as np
 import networkx
-from pyquaternion import Quaternion
 from scipy.ndimage import distance_transform_edt
 from scipy.spatial import cKDTree  # pylint: disable=no-name-in-module
 from scipy.spatial.distance import cdist
@@ -15,48 +12,59 @@ from geomdl import utilities
 import voxcell
 from plotly_helper.helper import PlotlyHelperPlane, plot_fig
 from plotly_helper.object_creator import scatter, scatter_line
-
-from atlas_analysis.planes.maths import get_plane_quaternion, quaternion_format_to_equation,\
-    equation_format_to_quaternion, quaternion_from_vectors, split_plane_elements
 from atlas_analysis.vtk_utils import create_vtk_spline
 from atlas_analysis.utils import pairwise
 from atlas_analysis.maths import normalize_vectors
 from atlas_analysis.atlas import indices_to_voxel_centers
-from atlas_analysis.constants import ZVECTOR, X, Y, Z
+from atlas_analysis.constants import CANONICAL, EQUATION, QUAT, X, Y, Z, XYZ, ZVECTOR
 from atlas_analysis.exceptions import AtlasAnalysisError
+from atlas_analysis.planes.maths import Plane
 
 
 def add_interpolated_planes(planes, inter_plane_count):
     """Densify a plane list adding inter_plane_count between pairs of consecutive planes.
 
     Args:
-        planes: the list of planes using the format [x, y, z, a, b, c, d], see
-         create_centerline_planes
+        planes: the list of Plane objects.
         inter_plane_count: number of planes to add between two consecutive planes (int)
 
     Returns:
-        a np.array using the format [x, y, z, a, b, c, d] with all planes
+        list of Plane objects.
     """
     if inter_plane_count <= 0:
-        return np.array(planes)
+        return planes
 
     new_planes = []
     first = 0
 
     # iterate over pairs of planes (plane --> (plane1, plane2), (plane2, plane3), ...)
     for plane1, plane2 in pairwise(planes):
-        locs = np.vstack([np.linspace(plane1[axis], plane2[axis],
-                                      inter_plane_count + 2, endpoint=True)
-                          for axis in (X, Y, Z)]).T
+        locations = np.vstack(
+            [
+                np.linspace(
+                    plane1.point[axis],
+                    plane2.point[axis],
+                    inter_plane_count + 2,
+                    endpoint=True,
+                )
+                for axis in (X, Y, Z)
+            ]
+        ).T
 
-        qs = Quaternion.intermediates(get_plane_quaternion(plane1),
-                                      get_plane_quaternion(plane2),
-                                      inter_plane_count, include_endpoints=True)
-        qs = [q.elements for q in qs]
-        new_planes.append(np.hstack([locs, qs])[first:])
+        # Interpolate plane normals
+        weights = np.linspace(0.0, 1.0, inter_plane_count + 2).reshape(
+            (1, inter_plane_count + 2)
+        )
+        normals = np.matmul(plane1.normal.reshape((3, 1)), 1.0 - weights) + np.matmul(
+            plane2.normal.reshape((3, 1)), weights
+        )
+        normals = normalize_vectors(normals.T)
+
+        for location, normal in zip(locations[first:], normals[first:]):
+            new_planes.append(Plane(location, normal))
         first = 1
 
-    return np.vstack(new_planes)
+    return new_planes
 
 
 def save_planes_centerline(filepath, planes, centerline, plane_format='quaternion'):
@@ -66,8 +74,7 @@ def save_planes_centerline(filepath, planes, centerline, plane_format='quaternio
         filepath: name of the output path
         planes: the planes orthogonal to the centerline to be saved under the form of a float
             array of shape (N, 7), i.e., a sequence of N planes either under the quaternionic format
-             [x, y, z, a, b, c, d] or the equation format [x, y, z, A, B, C, D]
-              (see create_centerline_planes).
+             [x, y, z, a, b, c, d] or the equation format [x, y, z, A, B, C, D]. See planes.maths.
         centerline: the centerline under the form of a float array of shape (M, 3), i.e., a
             sequence of M points (x, y, z).
         plane_format: format of the out planes, either 'quaternion' or 'equation'.
@@ -83,38 +90,85 @@ def save_planes_centerline(filepath, planes, centerline, plane_format='quaternio
          the relevant numpy arrays. A third optional key, namely 'plane_format', indicates whether
          planes are represented the quaternionic (default) or equation format.
     """
-    assert plane_format in ['quaternion', 'equation']
+    if plane_format not in ['quaternion', 'equation']:
+        raise AtlasAnalysisError(
+            f'Unknown plane format {plane_format}.'
+            ' Expected: \'equation\' or \'quaternion\''
+        )
 
-    planes = np.asarray(planes)
+    if plane_format == 'equation':
+        planes = np.array(
+            [np.concatenate([plane.point, plane.get_equation()]) for plane in planes]
+        )
+    else:
+        planes = np.array(
+            [
+                np.concatenate([plane.point, plane.get_quaternion().elements])
+                for plane in planes
+            ]
+        )
     centerline = np.asarray(centerline)
     np.savez(filepath, planes=planes, centerline=centerline, plane_format=plane_format)
     return filepath
 
 
-def load_planes_centerline(filepath, name=None):
+def load_planes_centerline(filepath):
     """Loads the centerline and planes file you want to access.
+
+    Note: the expected layout of the input npz file is:
+
+    {
+        'plane_format': <str or None>
+        'centerline': <nump.ndarray of shape (M, 3)>
+        'planes': <numpy.ndarray of shape (N, 7)>
+    }
+    The value of 'planes' is a sequence of planes which are either in the quaternionic or
+    or the equation format. See planes.maths.
 
     Args:
         filepath: the path to the npz file
-        name: the data name you want to load ('planes'|'centerline'|'plane_format') str or list
 
     Returns:
-        return a tuple of arrays if name is None or a list, return an array if name is a str
+        return a dict of the following form:
+        {
+            'plane_format': <str>
+            'centerline': <nump.ndarray of shape (M, 3)>
+            'planes': <list of Plane objects>
+        }
+
+
+    Raises:
+        AtlasAnalysisError if the input value of 'plane_format' is defined but is neither
+         'equation' nor 'quaternion'.
     """
-    res = dict(np.load(filepath))  # The loaded data are read-only.
+    res = dict(np.load(filepath, allow_pickle=True))  # The loaded data are read-only.
+
+    assert 'centerline' in res, 'Missing mandatory \'centerline\' field'
+    assert 'planes' in res, 'Missing mandatory \'planes\' field'
+
     # If the plane format is not specified, we assume that the quaternionic format is in use.
     # This is done for backward compatibility.
     res['plane_format'] = res.get('plane_format', 'quaternion')
-    if not name:
-        return res['planes'], res['centerline'], res['plane_format']
-    if isinstance(name, collections.Iterable) and not isinstance(name, six.string_types):
-        missing = set(name) - {'planes', 'centerline', 'plane_format'}
-        if missing:
-            raise AtlasAnalysisError('Cannot retrieve {}'.format(missing))
-        return (res[n] for n in name)
-    if name not in res:
-        raise AtlasAnalysisError('Cannot retrieve {}'.format(name))
-    return res[name]
+    if res['plane_format'] == 'equation':
+        res['planes'] = [
+            Plane(npz_plane[XYZ], npz_plane[EQUATION][:-1])
+            for npz_plane in res['planes']
+        ]
+    elif res['plane_format'] == 'quaternion':
+        res['planes'] = [
+            Plane.from_quaternion(
+                npz_plane[XYZ], npz_plane[QUAT], reference_vector=ZVECTOR
+            )
+            for npz_plane in res['planes']
+        ]
+    else:
+        raise AtlasAnalysisError(
+            'Unknown plane format {}. Expected: \'equation\' or \'quaternion\''.format(
+                res['plane_format']
+            )
+        )
+
+    return res
 
 
 def _distance_transform(voxeldata):
@@ -159,8 +213,15 @@ def _chain(to_evaluate, proposal, chain_length, dist, downhill, nrun, starting_p
     return chain
 
 
-def _explore_ridge(dist, starting_points, downhill=0.95, chain_length=100000,
-                   chain_count=5, sampling=10, proposal_step=3):
+def _explore_ridge(
+    dist,
+    starting_points,
+    downhill=0.95,
+    chain_length=100000,
+    chain_count=5,
+    sampling=10,
+    proposal_step=3,
+):
     """Detect points inside the valley of the 3d distance transform between two points.
 
     The goal is to find a sample of points that represent the volume's centerline that goes from
@@ -186,7 +247,7 @@ def _explore_ridge(dist, starting_points, downhill=0.95, chain_length=100000,
     """
     # pylint: disable=too-many-locals
     dim = len(dist.shape)
-    downhill = min(1., downhill)
+    downhill = min(1.0, downhill)
 
     def _proposal(iidx):
         """The proposal for the next step of chain in the indices representation.
@@ -212,8 +273,15 @@ def _explore_ridge(dist, starting_points, downhill=0.95, chain_length=100000,
     all_chains = []
     # launch multiple chains to scan more efficiently the distance transform ridges
     for nrun in range(chain_count * len(starting_points)):
-        chain = _chain(_dist_evaluation, _proposal, chain_length,
-                       dist, downhill, nrun, starting_points)
+        chain = _chain(
+            _dist_evaluation,
+            _proposal,
+            chain_length,
+            dist,
+            downhill,
+            nrun,
+            starting_points,
+        )
         all_chains.extend(chain[::sampling])
     return np.array(all_chains)
 
@@ -287,10 +355,15 @@ def _create_graph(cloud, link_distance=500):  # pylint: disable=too-many-locals
         closest_node_2 = None
         # find the min of distance matrices between all connected component element pairs
         for connected_comp_1, connected_comp_2 in combinations(connected_comp, 2):
-            tmp_a1, tmp_a2 = np.array(list(connected_comp_1)), np.array(list(connected_comp_2))
+            tmp_a1, tmp_a2 = (
+                np.array(list(connected_comp_1)),
+                np.array(list(connected_comp_2)),
+            )
             euclidean_dists = cdist(cloud[tmp_a1], cloud[tmp_a2], 'euclidean')
             # idx of the distance matrix min between c1 and c2
-            tmp_d_idx = np.unravel_index(np.argmin(euclidean_dists), euclidean_dists.shape)
+            tmp_d_idx = np.unravel_index(
+                np.argmin(euclidean_dists), euclidean_dists.shape
+            )
             if euclidean_dists[tmp_d_idx] < distance_min:
                 distance_min = euclidean_dists[tmp_d_idx]
                 closest_node_1 = tmp_a1[tmp_d_idx[0]]
@@ -300,8 +373,15 @@ def _create_graph(cloud, link_distance=500):  # pylint: disable=too-many-locals
     return graph
 
 
-def _create_centerline(voxeldata, starting_points, link_distance=500, downhill=0.95,
-                       chain_length=100000, chain_count=5, sampling=10):
+def _create_centerline(
+    voxeldata,
+    starting_points,
+    link_distance=500,
+    downhill=0.95,
+    chain_length=100000,
+    chain_count=5,
+    sampling=10,
+):
     """ Create the centerline using a distance transform
 
     Args:
@@ -323,15 +403,25 @@ def _create_centerline(voxeldata, starting_points, link_distance=500, downhill=0
 
     starting_points = np.asarray(starting_points)
     dist = _distance_transform(voxeldata)
-    ridge_pos = indices_to_voxel_centers(voxeldata, _explore_ridge(dist, starting_points,
-                                                                   downhill=downhill,
-                                                                   chain_length=chain_length,
-                                                                   chain_count=chain_count,
-                                                                   sampling=sampling))
+    ridge_pos = indices_to_voxel_centers(
+        voxeldata,
+        _explore_ridge(
+            dist,
+            starting_points,
+            downhill=downhill,
+            chain_length=chain_length,
+            chain_count=chain_count,
+            sampling=sampling,
+        ),
+    )
     clustered = _clusterize_cloud(ridge_pos, np.max(voxeldata.voxel_dimensions))
-    clustered = np.concatenate([[indices_to_voxel_centers(voxeldata, starting_points[0])],
-                                clustered,
-                                [indices_to_voxel_centers(voxeldata, starting_points[1])]])
+    clustered = np.concatenate(
+        [
+            [indices_to_voxel_centers(voxeldata, starting_points[0])],
+            clustered,
+            [indices_to_voxel_centers(voxeldata, starting_points[1])],
+        ]
+    )
 
     graph = _create_graph(clustered, link_distance=link_distance)
 
@@ -365,7 +455,9 @@ def _split_path(path, point_count):
     points = np.zeros((point_count, 3), dtype=np.float32)
     points[0] = path[0]
     points[-1] = path[-1]
-    points[1:-1] = path[indices] + np.multiply((path[indices + 1] - path[indices]).T, ratios).T
+    points[1:-1] = (
+        path[indices] + np.multiply((path[indices + 1] - path[indices]).T, ratios).T
+    )
     return points
 
 
@@ -383,7 +475,9 @@ def _smoothing(path, ctrl_point_count=10):
     return np.asarray(curve.evaluate_list(steps))
 
 
-def _create_planes(centerline, plane_count=25, delta=0.001):  # pylint: disable=too-many-locals
+def _create_planes(
+    centerline, plane_count=25, delta=0.001
+):  # pylint: disable=too-many-locals
     """ Returns the plane quaternions and positions
 
     We need to recreate a spline on top of the bezier curve to have a proper parametric function
@@ -396,7 +490,7 @@ def _create_planes(centerline, plane_count=25, delta=0.001):  # pylint: disable=
         delta: the parametric delta to define the tangent
 
     Returns:
-        a list of plane_count x [x, y, z, a, b, c, d]
+        a list of plane_count x Plane([x, y, z], [A, B, C, D])
     """
     spline = create_vtk_spline(centerline)
     sampling_up = np.zeros((plane_count, 3), dtype=np.float)
@@ -420,16 +514,25 @@ def _create_planes(centerline, plane_count=25, delta=0.001):  # pylint: disable=
     unit_longs = normalize_vectors(sampling_up - sampling_down)
     planes = []
     for unit_long, pos in zip(unit_longs, sampling_up):
-        qz = quaternion_from_vectors(ZVECTOR, unit_long)
-        planes.append(pos.tolist() + Quaternion(qz).unit.elements.tolist())
+        planes.append(Plane(pos, unit_long))
 
     return planes
 
 
-def create_centerline_planes(nrrd_path, output_path, starting_points,
-                             downhill=0.95, chain_length=100000, chain_count=5, sampling=10,
-                             link_distance=500, ctrl_point_count=10, plane_count=25, seed=41,
-                             plane_format='quaternion'):
+def create_centerline_planes(
+    nrrd_path,
+    output_path,
+    starting_points,
+    downhill=0.95,
+    chain_length=100000,
+    chain_count=5,
+    sampling=10,
+    link_distance=500,
+    ctrl_point_count=10,
+    plane_count=25,
+    seed=41,
+    plane_format='quaternion',
+):
     """Create a centerline and orthogonal planes from a volume
 
     Args:
@@ -455,7 +558,7 @@ def create_centerline_planes(nrrd_path, output_path, starting_points,
              of the plane, i.e., qkq^{-1} = n_x * i + n_y * j + n_z * k where (n_x, n_y, n_z) is a
              normal unit vector of P.
              (See https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation).
-            If `plane_format` is 'equation', A * x + B* y + C * z = D is the equation of the output
+            If `plane_format` is 'equation', A * x + B * y + C * z = D is the equation of the output
              plane P.
 
     Notes:
@@ -496,14 +599,18 @@ def create_centerline_planes(nrrd_path, output_path, starting_points,
     """
     np.random.seed(seed)
     voxeldata = voxcell.VoxelData.load_nrrd(nrrd_path)
-    centerline = _create_centerline(voxeldata, starting_points, link_distance=link_distance,
-                                    downhill=downhill, chain_length=chain_length,
-                                    chain_count=chain_count, sampling=sampling)
+    centerline = _create_centerline(
+        voxeldata,
+        starting_points,
+        link_distance=link_distance,
+        downhill=downhill,
+        chain_length=chain_length,
+        chain_count=chain_count,
+        sampling=sampling,
+    )
     centerline = _smoothing(centerline, ctrl_point_count=ctrl_point_count)
     # Returns planes under quaternionic format
     planes = _create_planes(centerline, plane_count=plane_count)
-    if plane_format == 'equation':
-        planes = quaternion_format_to_equation(planes)
     save_planes_centerline(output_path, planes, centerline, plane_format=plane_format)
 
 
@@ -519,12 +626,11 @@ def draw(nrrd_path, preprocess_path, volume_name):  # pragma: no cover
         volume_name: name of the volume to draw, used as a label by Plotly
     """
 
-    def _create_plane(pos, quat, color='blue', size_multiplier=2500, opacity=0.7):
+    def _create_plane(plane, color='blue', size_multiplier=2500, opacity=0.7):
         """ Create a 3d plane using a center position and a quaternion for orientation
 
         Args :
-            pos: x,y,z position of the plane's center (array([x,y,z]))
-            quat: quaternion representing the orientations (Quaternion)
+            plane: a Plane object
             color: color of plane (plain text red|purple|blue)
             size_multiplier: plane size in space coordinates (float)
             opacity: set the opacity value (float)
@@ -534,23 +640,17 @@ def draw(nrrd_path, preprocess_path, volume_name):  # pragma: no cover
         """
         import plotly.graph_objects as go
 
-        def _get_displaced_pos(axis):
-            """ Compute the shifted position wrt the quaternion and axis """
-            return pos + size_multiplier * np.array(quat.rotate(axis))
-
-        positif_x = _get_displaced_pos((1, 0, 0))
-        positif_y = _get_displaced_pos((0, 1, 0))
-        negatif_x = _get_displaced_pos((-1, 0, 0))
-        negatif_y = _get_displaced_pos((0, -1, 0))
-
-        x = [[positif_x[0], positif_y[0]], [negatif_y[0], negatif_x[0]]]
-        y = [[positif_x[1], positif_y[1]], [negatif_y[1], negatif_x[1]]]
-        z = [[positif_x[2], positif_y[2]], [negatif_y[2], negatif_x[2]]]
+        basis = plane.get_basis(CANONICAL)
+        quadrilateral = (
+            np.array([[basis[X], basis[Y]], [-basis[Y], -basis[X]]]) * size_multiplier
+            + plane.point
+        )
+        quadrilateral = quadrilateral.T
 
         return go.Surface(
-            z=z,
-            x=x,
-            y=y,
+            z=quadrilateral[Z],
+            x=quadrilateral[X],
+            y=quadrilateral[Y],
             showscale=False,
             surfacecolor=[color, color],
             opacity=opacity,
@@ -558,21 +658,29 @@ def draw(nrrd_path, preprocess_path, volume_name):  # pragma: no cover
 
     voxeldata = voxcell.VoxelData.load_nrrd(nrrd_path)
 
-    planes, centerline, plane_format = load_planes_centerline(
-        preprocess_path, ['planes', 'centerline', 'plane_format'])
-    if plane_format == 'equation':
-        planes = equation_format_to_quaternion(planes)
+    planes_data = load_planes_centerline(preprocess_path)
+
     dist = _distance_transform(voxeldata)
     hull_idx = np.array(np.where((dist <= 1) & (dist > 0))).T
     hull_pos = indices_to_voxel_centers(voxeldata, hull_idx)
-    hull_pos = hull_pos[np.random.choice(hull_pos.shape[0], min(10000, len(hull_pos)),
-                                         replace=False), :]
+    hull_pos = hull_pos[
+        np.random.choice(hull_pos.shape[0], min(10000, len(hull_pos)), replace=False), :
+    ]
 
     ph = PlotlyHelperPlane('plane creation', '3d')
     while volume_name in ['planes', 'centerline']:
         volume_name = volume_name + '_'
-    ph.add_data({volume_name: scatter(hull_pos, name=volume_name, color='red', width=2)})
-    vis_planes = [_create_plane(*split_plane_elements(plane)) for plane in planes]
+    ph.add_data(
+        {volume_name: scatter(hull_pos, name=volume_name, color='red', width=2)}
+    )
+    vis_planes = [_create_plane(plane) for plane in planes_data['planes']]
     ph.add_data({'planes': vis_planes})
-    ph.add_data({'centerline': scatter_line(centerline, name='centerline', color='green', width=8)})
-    plot_fig(ph.get_fig(), "plane_creation")
+    ph.add_data(
+        {
+            'centerline': scatter_line(
+                planes_data['centerline'], name='centerline', color='green', width=8
+            )
+        }
+    )
+
+    plot_fig(ph.get_fig(), 'plane_creation')

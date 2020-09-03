@@ -79,12 +79,7 @@ from atlas_analysis.vtk_utils import (
     create_cutter_from_stl,
 )
 from atlas_analysis.utils import pairwise, save_raw
-from atlas_analysis.planes.maths import (
-    distances_to_planes,
-    get_plane_quaternion,
-    get_normal,
-    split_plane_elements,
-)
+from atlas_analysis.planes.maths import distances_to_planes
 from atlas_analysis.planes.planes import (
     load_planes_centerline,
     add_interpolated_planes,
@@ -269,7 +264,7 @@ def _create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps)
     """Function that creates splines to describe the upper and lower shells and the indexing.
 
     Args:
-        planes(list): the list of plane using the format [x,y,z,a,b,c,d]
+        planes(list): the list of Plane objects
         upper_cutter(vtkCutter): a vtkCutter that includes the upper_mesh to cut
         lower_cutter(vtkCutter): a vtkCutter that includes the lower_mesh to cut
         nb_spline_steps(int): the number of points after sampling for splines
@@ -297,7 +292,7 @@ def _create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps)
     L.info('Ends up in %i indexed points', nb_points)
 
     for plane in planes:
-        loc, rot = split_plane_elements(plane)
+        loc, rot = plane.point, plane.get_quaternion(ZVECTOR)
 
         array_upper = _cut_shell(loc, rot, vtk_plane, upper_cutter)
         array_lower = _cut_shell(loc, rot, vtk_plane, lower_cutter)
@@ -338,8 +333,8 @@ def _longitudinal_coordinate_orientation(point, planes):
     if idx == 0 or idx == len(planes):
         return -1, -1
 
-    p0 = planes[idx - 1, :]
-    p1 = planes[idx, :]
+    p0 = planes[idx - 1]
+    p1 = planes[idx]
 
     d0 = abs(distances[idx - 1])
     d1 = abs(distances[idx])
@@ -348,8 +343,8 @@ def _longitudinal_coordinate_orientation(point, planes):
 
     long = (idx - 1 + t) / len(planes)
 
-    q0 = get_plane_quaternion(p0)
-    q1 = get_plane_quaternion(p1)
+    q0 = p0.get_quaternion(ZVECTOR)
+    q1 = p1.get_quaternion(ZVECTOR)
 
     quat = Quaternion.slerp(q0, q1, amount=t)
 
@@ -421,7 +416,7 @@ def _closest_point_on_plane(point, loc, rot):
     """
     point = np.array(point)
     vect = np.array(point) - np.array(loc)
-    normal = np.array(get_normal(rot))
+    normal = np.array(rot.rotate(ZVECTOR))
     normal = normalize_vector(normal)
     dist = np.dot(vect, normal)
     return point - dist * normal
@@ -531,7 +526,7 @@ def _fill_atlases(
 
     Args:
         points: positions in 3d (np.array([[x1,y1,z1], ..., [x2,y2,z2]]))
-        planes: list of planes using the format [x,y,z,a,b,c,d]
+        planes: list of Plane objects
         tree (scipy kdtree): the tree that includes all sampled points
         brain_regions : the atlas containing the brain region
         voxel_spline_indexing:(np.array([[x1,y1,z1,spline_idx1], ..., [x2,y2,z2,spline_idx1]]))
@@ -666,7 +661,7 @@ def creates(
     np.random.seed(seed)  # seed for sampling
 
     nb_points = sampling
-    planes = load_planes_centerline(plane_centerline_path, 'planes')
+    planes = load_planes_centerline(plane_centerline_path)['planes']
     brain_regions_path = voxcell.VoxelData.load_nrrd(brain_regions_path)
 
     orients = _initialize_raw(brain_regions_path, 4, value=0)

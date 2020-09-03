@@ -142,7 +142,7 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
 
     # Display the center line
     if centerline_file is not None:
-        centerline = load_planes_centerline(centerline_file, name='centerline')
+        centerline = load_planes_centerline(centerline_file)['centerline']
         centerline_actor = _create_centerline(centerline)
         centerline_actor.GetProperty().SetColor(0, 1, 0)
         centerline_actor.GetProperty().SetLineWidth(5)

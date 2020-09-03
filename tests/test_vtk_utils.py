@@ -11,7 +11,7 @@ import atlas_analysis.vtk_utils as tested
 
 import vtk
 
-from utils import path, load_nrrd
+from tests.utils import path, load_nrrd
 
 
 def assert_polydata_equals(p0, p1):

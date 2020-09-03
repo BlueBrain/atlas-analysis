@@ -10,7 +10,7 @@ from mock import patch
 import atlas_analysis.utils as tested
 from atlas_analysis.exceptions import AtlasAnalysisError
 
-from utils import load_nrrd, path, load_orientation
+from tests.utils import load_nrrd, path, load_orientation
 
 
 def test_add_suffix_1():

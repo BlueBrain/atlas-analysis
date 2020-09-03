@@ -7,7 +7,7 @@ import numpy as np
 from scipy import ndimage
 from scipy.ndimage.morphology import generate_binary_structure
 import voxcell
-from utils import load_nrrd, path, load_nrrds
+from tests.utils import load_nrrd, path, load_nrrds
 from atlas_analysis.exceptions import AtlasAnalysisError
 from atlas_analysis.curation import NEAREST_NEIGHBOR_INTERPOLATION,\
     COMPETITIVE_NEAREST_NEIGHBOR_INTERPOLATION

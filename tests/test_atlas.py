@@ -13,7 +13,7 @@ import voxcell
 import atlas_analysis.atlas as tested
 from atlas_analysis.exceptions import AtlasAnalysisError
 
-from utils import load_nrrd, path, load_nrrds
+from tests.utils import load_nrrd, path, load_nrrds
 
 
 def choice(result, sample, replace=False):
