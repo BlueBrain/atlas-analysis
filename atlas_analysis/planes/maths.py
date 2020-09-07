@@ -163,10 +163,13 @@ class Plane:
         Args:
             point: list or numpy.ndarray [x, y, z] of shape (3,) representing a distinguished
                 point of the plane to be created.
-
+            quaternion: a quaternion q complying with the [w, x ,y, z] convention, i.e.,
+                q = w + x * i + y * j + z * k. `quaternion` is any value supported by the
+                constructor of pyquaternion.Quaternion. It can be for instance a 4D array
+                [w, x, y, z] or a pyquaternion.Quaternion instance.
             reference_vector: (Optional) list or numpy.ndarray [n_x, n_y, n_z] of shape (3,) whose
-                image by the rotation of `quaternion` defines a unit normal vector of the plane to
-                be created. Defaults to ZVECTOR=(0, 0, 1).
+                image by the rotation of `quaternion` defines a unit normal vector of the oriented
+                plane to be created. Defaults to ZVECTOR=(0, 0, 1).
 
         Returns:
             A Plane object passing through `point` and whose unit normal vector [A, B, C] is
@@ -175,10 +178,10 @@ class Plane:
         """
         try:
             quaternion = Quaternion(quaternion)
-        except ValueError:
+        except ValueError as error:
             raise AtlasAnalysisError(
                 f'Cannot convert \'quaternion\' {quaternion} to pyquaternion.Quaternion'
-            )
+            ) from error
         normal = quaternion.rotate(reference_vector)
 
         return cls(point, normal)
