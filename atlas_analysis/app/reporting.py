@@ -87,6 +87,14 @@ def write_density_report(
 @click.argument('input_path', type=FILE_TYPE)
 @click.option('-o', '--output_path', type=str, help='Output file name', required=True)
 @click.option(
+    '-j',
+    '--hierarchy_path',
+    help='(Optional) Path to the hierarchy json file. If provided, the acronym '
+    ' of the brain regions will be displayed in addition to the region identifiers.',
+    required=False,
+    default=None
+)
+@click.option(
     '-c',
     '--connectivity',
     is_flag=True,
@@ -107,16 +115,9 @@ def write_density_report(
     ' Defaults to False, i.e, no cavity reporting.',
     default=False,
 )
-@click.option(
-    '-j',
-    '--hierarchy-path',
-    help='(Optional) Path to the hierarchy json file. If provided, the acronym '
-    ' of the brain regions will be displayed in addition to the region identifiers.',
-    default=False,
-)
 @log_args(L)
 def write_voxel_count_report(
-    input_path, output_path, connectivity, cavity, hierachy_path
+    input_path, output_path, hierarchy_path, connectivity, cavity
 ):
     """ Write a report file containing voxel counts per region.
 
@@ -124,6 +125,10 @@ def write_voxel_count_report(
     - the number of regions.
     - the sorted list of regions where regions are represented by their voxel integer label.
     - the number of voxels per region.
+
+    If a hierarchy_path is specified, then the acronym of the brain regions will be displayed
+     in addition to the label.
+
     If the connectivity option is set to True, the report indicates whether regions are connected
     or not. The report contains then the total numbers of connected components with
     size <= 100\'000\'000 voxels together with an histogram of the connected the components counts
@@ -138,10 +143,14 @@ def write_voxel_count_report(
     """
 
     voxel_data = voxcell.VoxelData.load_nrrd(input_path)
+    region_map = None
+    if hierarchy_path is not None:
+        region_map = voxcell.RegionMap.load_json(hierarchy_path)
+
     report = reporting.VoxelCountReport.from_voxel_data(
         voxel_data,
         connectivity_is_required=connectivity,
         cavities_are_required=cavity,
-        region_map=voxcell.RegionMap.load_json(hierachy_path),
+        region_map=region_map,
     )
     report.save_as(output_path)
