@@ -16,7 +16,7 @@ from atlas_analysis.vtk_utils import create_vtk_spline
 from atlas_analysis.utils import pairwise
 from atlas_analysis.maths import normalize_vectors
 from atlas_analysis.atlas import indices_to_voxel_centers
-from atlas_analysis.constants import CANONICAL, EQUATION, QUAT, X, Y, Z, XYZ, ZVECTOR
+from atlas_analysis.constants import CANONICAL, NORMAL, QUAT, X, Y, Z, XYZ, ZVECTOR
 from atlas_analysis.exceptions import AtlasAnalysisError
 from atlas_analysis.planes.maths import Plane
 
@@ -74,10 +74,10 @@ def save_planes_centerline(filepath, planes, centerline, plane_format='quaternio
         filepath: name of the output path
         planes: the planes orthogonal to the centerline to be saved under the form of a float
             array of shape (N, 7), i.e., a sequence of N planes either under the quaternionic format
-             [x, y, z, a, b, c, d] or the equation format [x, y, z, A, B, C, D]. See planes.maths.
+             [x, y, z, a, b, c, d] or the point-normal format [x, y, z, A, B, C]. See planes.maths.
         centerline: the centerline under the form of a float array of shape (M, 3), i.e., a
             sequence of M points (x, y, z).
-        plane_format: format of the out planes, either 'quaternion' or 'equation'.
+        plane_format: format of the out planes, either 'quaternion' or 'point_normal'.
             Defaults to 'quaternion'.
 
     Returns:
@@ -88,17 +88,17 @@ def save_planes_centerline(filepath, planes, centerline, plane_format='quaternio
          system, see the coordinates module. It contains all the planes and the centerline points.
          It contains 2 mandatory keys: 'centerline' and 'planes' whose corresponding values hold
          the relevant numpy arrays. A third optional key, namely 'plane_format', indicates whether
-         planes are represented the quaternionic (default) or equation format.
+         planes are represented the quaternionic (default) or point-normal format.
     """
-    if plane_format not in ['quaternion', 'equation']:
+    if plane_format not in ['quaternion', 'point_normal']:
         raise AtlasAnalysisError(
             f'Unknown plane format {plane_format}.'
-            ' Expected: \'equation\' or \'quaternion\''
+            ' Expected: \'point_normal\' or \'quaternion\''
         )
 
-    if plane_format == 'equation':
+    if plane_format == 'point_normal':
         planes = np.array(
-            [np.concatenate([plane.point, plane.get_equation()]) for plane in planes]
+            [plane.to_numpy() for plane in planes]
         )
     else:
         planes = np.array(
@@ -120,10 +120,10 @@ def load_planes_centerline(filepath):
     {
         'plane_format': <str or None>
         'centerline': <nump.ndarray of shape (M, 3)>
-        'planes': <numpy.ndarray of shape (N, 7)>
+        'planes': <numpy.ndarray of shape (N, 7) for quaternionic or (N, 6) for point-normal format>
     }
     The value of 'planes' is a sequence of planes which are either in the quaternionic or
-    or the equation format. See planes.maths.
+    or the point-normal format. See planes.maths.
 
     Args:
         filepath: the path to the npz file
@@ -139,7 +139,7 @@ def load_planes_centerline(filepath):
 
     Raises:
         AtlasAnalysisError if the input value of 'plane_format' is defined but is neither
-         'equation' nor 'quaternion'.
+        'point_normal' nor 'quaternion'.
     """
     res = dict(np.load(filepath, allow_pickle=True))  # The loaded data are read-only.
 
@@ -149,9 +149,9 @@ def load_planes_centerline(filepath):
     # If the plane format is not specified, we assume that the quaternionic format is in use.
     # This is done for backward compatibility.
     res['plane_format'] = res.get('plane_format', 'quaternion')
-    if res['plane_format'] == 'equation':
+    if res['plane_format'] == 'point_normal':
         res['planes'] = [
-            Plane(npz_plane[XYZ], npz_plane[EQUATION][:-1])
+            Plane(npz_plane[XYZ], npz_plane[NORMAL])
             for npz_plane in res['planes']
         ]
     elif res['plane_format'] == 'quaternion':
@@ -163,7 +163,7 @@ def load_planes_centerline(filepath):
         ]
     else:
         raise AtlasAnalysisError(
-            'Unknown plane format {}. Expected: \'equation\' or \'quaternion\''.format(
+            'Unknown plane format {}. Expected: \'point_normal\' or \'quaternion\''.format(
                 res['plane_format']
             )
         )
@@ -373,7 +373,7 @@ def _create_graph(cloud, link_distance=500):  # pylint: disable=too-many-locals
     return graph
 
 
-def _create_centerline(
+def create_centerline(
     voxeldata,
     starting_points,
     link_distance=500,
@@ -475,7 +475,7 @@ def _smoothing(path, ctrl_point_count=10):
     return np.asarray(curve.evaluate_list(steps))
 
 
-def _create_planes(
+def create_planes(
     centerline, plane_count=25, delta=0.001
 ):  # pylint: disable=too-many-locals
     """ Returns the plane quaternions and positions
@@ -490,7 +490,7 @@ def _create_planes(
         delta: the parametric delta to define the tangent
 
     Returns:
-        a list of plane_count x Plane([x, y, z], [A, B, C, D])
+        a list of plane_count x Plane([x, y, z], [A, B, C])
     """
     spline = create_vtk_spline(centerline)
     sampling_up = np.zeros((plane_count, 3), dtype=np.float)
@@ -550,7 +550,7 @@ def create_centerline_planes(
         plane_count: the number of planes to return
         seed: the seed for the pseudo random generator
         plane_format(str): either 'quaternion' for output planes P of the form [x, y, z, a, b ,c, d]
-             or 'equation' for output planes of the form [A, B, C, D].
+             or 'point_normal' format for output planes of the form [x, y, z, A, B, C].
             If `plane_format` is 'quaternion', then (x, y, z) represents the 3D coordinates of the
              intersection of the centerline with the plane P. The (a, b, c, d)-part is a unit
             quaternion q complying with the convention 'w, x, y, z'. The quaternion
@@ -558,8 +558,9 @@ def create_centerline_planes(
              of the plane, i.e., qkq^{-1} = n_x * i + n_y * j + n_z * k where (n_x, n_y, n_z) is a
              normal unit vector of P.
              (See https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation).
-            If `plane_format` is 'equation', A * x + B * y + C * z = D is the equation of the output
-             plane P.
+            If `plane_format` is 'point_normal', then (x, y, z) represents the 3D coordinates of the
+             intersection of the centerline with the plane P while [A, B, C] is a unit normal vector
+             of the plane.
 
     Notes:
         The algorithm will do the following steps (the related input variables are put
@@ -599,7 +600,7 @@ def create_centerline_planes(
     """
     np.random.seed(seed)
     voxeldata = voxcell.VoxelData.load_nrrd(nrrd_path)
-    centerline = _create_centerline(
+    centerline = create_centerline(
         voxeldata,
         starting_points,
         link_distance=link_distance,
@@ -610,7 +611,7 @@ def create_centerline_planes(
     )
     centerline = _smoothing(centerline, ctrl_point_count=ctrl_point_count)
     # Returns planes under quaternionic format
-    planes = _create_planes(centerline, plane_count=plane_count)
+    planes = create_planes(centerline, plane_count=plane_count)
     save_planes_centerline(output_path, planes, centerline, plane_format=plane_format)
 
 

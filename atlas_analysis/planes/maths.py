@@ -3,8 +3,8 @@
 The functions of this module are functions acting on oriented affine planes of the 3D Euclidean
 space. These functions are used by both the plane module and the coordinates module.
 
-A Plane object as defined in this module is the data consisting of a unit vector [A, B, C]
-and a distinguihed 3D point [x, y, z]. The underlying oriented affine plane is the plane passing
+A Plane object as defined in this module is the data consisting of a distinguihed 3D point [x, y, z]
+and a unit vector [A, B, C]. The underlying oriented affine plane is the plane passing
 through [x, y, z] and orthogonal to the line defined by [A, B, C]. An equation defining the plane
 is given by A * X + B * Y + C * Z = D where D = A * x + B * y + C * z.
 
@@ -17,13 +17,10 @@ Output formats
 When saved to disk, the planes created by the planes module can be represented under two different
  output formats:
 
-- the so-called quaterionic format [x, y, z, a, b, c, d]
-- the equation format [x, y, z, A, B, C, D]
+- the so-called quaterionic format: [x, y, z, a, b, c, d]
+- the point-normal or Plane format: [x, y, z, A, B, C]
 
-The quaternionic format is also the internal format used by atlas-analysis.
-All function in this module operate only on the planes with the quaternionic format.
-The equation format is only a user-friendly alternative ouput format, derived from the
-internal format by means of conversion function defined in this file.
+The quaternionic format is a legacy output format. It is maintained for backward compatibility.
 
 For both output formats the float vector (x, y, z) represents the 3D coordinates of a
 distinguished point of the plane P. This point is an anchor that can be used as the origin
@@ -36,11 +33,10 @@ w + x * i + y * j + z * k maps ZVECTOR = [0, 0, 1] to a unit vector orthogonal t
  i.e., qkq^{-1} = n_x * i + n_y * j + n_z * k where (n_x, n_y, n_z) is a normal unit vector of P.
  See https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation.
 
-With the format [x, y, z, A, B, C, D] of a plane P, the float vector [A, B, C,
-D] holds the coefficients of an equation representing P, that is, P is the locus
-of the points [X, Y, Z] satisfying the equation A * X + B * Y + C * Z = D.
-The normal vector [A, B, C] is assumed to be normalized.
+With the format [x, y, z, A, B, C] of a plane P, the float vector [A, B, C] is the unit normal
+vector of the plane.
 """
+import warnings
 import numpy as np
 from pyquaternion import Quaternion
 
@@ -120,7 +116,7 @@ class Plane:
         Returns a direct orthonormal basis of the plane.
 
         The returned basis [u, v] is such that [u, v, [A, B, C]] is a direct orthonormal basis
-        of R^3 where [A, B, C, D] are the coefficients of the normalized plane equation.
+        of R^3 where [A, B, C] is the plane unit normal vector.
 
         The construction is as follows:
 
@@ -154,6 +150,64 @@ class Plane:
 
         quaternion = self.get_quaternion(reference_basis[2])
         return np.array([quaternion.rotate(reference_basis[i]) for i in range(2)])
+
+    def get_best_alignment_basis(self, target, axis=0):
+        """
+        Returns a direct orthonormal basis of the plane a vector of which has the best possible
+        alignment with `target`.
+
+        Depending on the value of `axis`, either the first or the second basis vector is chosen
+        so that it has the largest possible scalar product with `target` (i.e., as close as
+        possible to 1.0 when the target vector is normalized).
+
+        If `target` is colinear with the plane unit normal vector [A, B, C], the basis is not
+        unique: any unit vector orthogonal to [A, B, C] has the best alignment with `target`.
+        In this case the function returns self.get_basis().
+
+        Args:
+            target: array-like object of shape (3,); this is the 3D vector with which the best
+                alignment is requested.
+            axis(int): (optional) either 0 or 1, depending on whether the first or the second basis
+                vector is requested to be as close as possible to `target` wrt to the 3D Euclidean
+                norm (this is equivalent to scalar product maximisation). Defaults to 0, i.e., the
+                first basis vector is best aligned with `target`.
+
+        Returns:
+            np.ndarray of shape (2, 3) holding the two vectors of a direct orthonormal basis of
+            the plane. Depending on the value of `axis`, either the first or the second basis vector
+            has the best possible alignment with `target` among all possible basis vectors.
+
+        Raises:
+            AtlasAnalysisError if `target`is close to zero, see np.close documentation,
+            https://numpy.org/doc/stable/reference/generated/numpy.isclose.html
+
+        """
+        if axis not in [0, 1]:
+            raise AtlasAnalysisError(f'"axis" must be either 0 or 1. Got {axis}')
+
+        norm = np.linalg.norm(target)
+        if np.isclose(norm, 0.0):
+            raise AtlasAnalysisError(
+                'The "target" vector is close to zero. A non-zero 3D vector is expected.'
+            )
+
+        basis = np.zeros((2, 3), dtype=float)
+        basis[1 - axis] = np.cross(target, self.normal)
+        norm = np.linalg.norm(basis[1 - axis])
+        if np.isclose(norm, 0.0):
+            warnings.warn(
+                f'The target vector {target} is colinear with the plane normal {self.normal}'
+                'Returning the default basis of Plane.get_basis.',
+                UserWarning,
+            )
+            return self.get_basis()
+
+        basis[1 - axis] /= norm
+        basis[axis] = np.cross(self.normal, basis[1 - axis])
+        if axis == 0:
+            basis[1 - axis] *= -1.0
+
+        return basis
 
     @classmethod
     def from_quaternion(cls, point, quaternion, reference_vector=ZVECTOR):
@@ -209,6 +263,61 @@ class Plane:
         return np.concatenate([self.normal, [np.dot(self.point, self.normal)]])
 
 
+def create_orthogonal_planes(start, end, points):
+    """
+    Create a sequence of Planes orthogonal to the line segment [start, end] with a specific
+    distribution.
+
+    The function returns a list of Plane objects. Each underlying plane has a unit normal vector
+    with direction end - start. The positions of the plane anchor points between `start` and `end`
+    are determined by the 1D array `points`.
+
+    Args:
+        start: an array-like object of shape (3,). The start point of the 3D line segment
+            to which the created planes are orthogonal.
+        end: an array-like object of shape (3,). The end point of the 3D line segment
+            to which the created planes are orthogonal.
+        points: a 1D array-like object. An sequence of numbers representing the positions
+             of the orthogonal planes along the segment [start, end].
+             Example: If `points` is [0, 0.5, 1.0], then 3 planes orthogonal to [start, end] will
+             be created. The first one passes through `start`, the second one passes through
+             `0.5 * (start + point)` and the last one passes through `end`.
+
+    Returns:
+        list of Plane objects of the same length as `points`. The returned Plane objects have
+        all the same unit normal vector, that is `(end - start) / np.linal.norm(end - start)`.
+
+    Raises: AtlasAnalysisError if:
+        * `start` and `end` are close to be the same (see numpy.close documentation)
+        * `points` is not a 1D array-like object
+
+    """
+
+    diff = np.asarray(end) - np.asarray(start)
+    norm = np.linalg.norm(diff)
+    if np.isclose(norm, 0.0):
+        raise AtlasAnalysisError(
+            'The "end" point is close to the "start" point.'
+            ' Two distinct 3D points are expected.'
+        )
+    normal = diff / norm  # the common plane unit normal vector
+
+    points = np.asarray(points)
+    if len(points.shape) > 1:
+        raise AtlasAnalysisError(
+            f'"points" must be a 1D array. Got shape {points.shape}'
+        )
+
+    # Affine transform of `points` into [0, 1] so that min(points) = 0 and max(points) = 1.
+    points -= np.min(points)
+    points = points / np.max(points)
+
+    # A sequence of anchor points along the 3D line segment [start, end]
+    anchors = np.outer(points, diff) + np.array(start)
+
+    return [Plane(anchor, normal) for anchor in anchors]
+
+
 def distances_to_planes(point, planes):
     """Returns the signed distance of a point to a list of planes.
 
@@ -227,7 +336,7 @@ def distances_to_planes(point, planes):
 
 
 def quaternion_from_vectors(s, t):
-    '''
+    """
     Returns the quaternion (s cross t) + (s dot t + |s||t|).
 
     This quaternion q maps s to t * |s|/|t|, i.e., qsq^{-1} = t * |s|/|t|.
@@ -244,6 +353,6 @@ def quaternion_from_vectors(s, t):
         Numeric array of shape (4,).
         This data is interpreted as a quaternion. A quaternion is a 4D
         vector [w, x, y, z] where [x, y, z] is the imaginary part.
-    '''
+    """
     w = np.dot(s, t) + np.linalg.norm(s) * np.linalg.norm(t)
     return np.hstack([w, np.cross(s, t)])

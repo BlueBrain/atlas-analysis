@@ -8,3 +8,4 @@ doc/build
 .tox
 **/.vscode
 **/.mypy_cache
+.python-version

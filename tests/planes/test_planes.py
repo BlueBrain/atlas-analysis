@@ -62,13 +62,13 @@ def test_save_planes_centerline():
 
     with TemporaryDirectory() as directory:
         tested.save_planes_centerline(
-            Path(directory, 'test.npz'), planes, centerline, plane_format='equation'
+            Path(directory, 'test.npz'), planes, centerline, plane_format='point_normal'
         )
         nt.ok_(Path(directory, 'test.npz').exists())
         data = np.load(Path(directory, 'test.npz'))
         assert 'centerline' in data
         assert 'planes' in data
-        nt.assert_equal(data['plane_format'], 'equation')
+        nt.assert_equal(data['plane_format'], 'point_normal')
 
     with nt.assert_raises(AtlasAnalysisError):
         tested.save_planes_centerline(
@@ -121,7 +121,7 @@ def test_load_planes_centerline():
             Path(directory, 'test.npz'),
             expected_planes,
             expected_centerline,
-            plane_format="equation",
+            plane_format="point_normal",
         )
         res_planes = tested.load_planes_centerline(filepath)
         npt.assert_almost_equal(
@@ -129,7 +129,7 @@ def test_load_planes_centerline():
             [plane.to_numpy() for plane in expected_planes],
         )
         npt.assert_almost_equal(res_planes['centerline'], expected_centerline)
-        nt.assert_equal(res_planes['plane_format'], 'equation')
+        nt.assert_equal(res_planes['plane_format'], 'point_normal')
 
     # Wrong format
     with TemporaryDirectory() as directory:
@@ -217,9 +217,9 @@ def test__create_graph():
     nt.assert_equal(len(connected_comp), 1)
 
 
-def test__create_centerline():
+def test_create_centerline():
     volume = create_rectangular_shape(1000, 15)
-    res = tested._create_centerline(
+    res = tested.create_centerline(
         volume, [[1, 7, 7], [999, 7, 7]], link_distance=2, chain_length=10000
     )
     # when the chain reach stability the mean of y and z should be close to the
@@ -230,7 +230,7 @@ def test__create_centerline():
     nt.ok_(abs(y_mean_res - 75) < tol)
     nt.ok_(abs(z_mean_res - 75) < tol)
     with nt.assert_raises(AtlasAnalysisError):
-        tested._create_centerline(volume, [[1, 7, 7], [999, 7, 7], [1, 1, 1]])
+        tested.create_centerline(volume, [[1, 7, 7], [999, 7, 7], [1, 1, 1]])
 
 
 def test_split_path():
@@ -273,7 +273,7 @@ def test_split_path():
 
 def test__smoothing():
     volume = create_rectangular_shape(1000, 15)
-    centerline = tested._create_centerline(
+    centerline = tested.create_centerline(
         volume, [[1, 7, 7], [999, 7, 7]], link_distance=2, chain_length=10000
     )
 
@@ -287,13 +287,13 @@ def test__smoothing():
     nt.ok_(abs(z_mean_res - 75) < tol)
 
 
-def test__create_planes():
+def test_create_planes():
     volume = create_rectangular_shape(1000, 15)
-    centerline = tested._create_centerline(
+    centerline = tested.create_centerline(
         volume, [[1, 7, 7], [999, 7, 7]], link_distance=2, chain_length=10000
     )
     centerline = tested._smoothing(centerline)
-    res = tested._create_planes(centerline, plane_count=10)
+    res = tested.create_planes(centerline, plane_count=10)
     points = np.array([plane.point for plane in res])
     y_mean_res = points.mean(axis=0)[1]
     z_mean_res = points.mean(axis=0)[2]
@@ -312,7 +312,7 @@ def test__create_planes():
     nt.ok_(np.all(np.abs(res_q - expected) < tols))
 
 
-def test_create_centerline_planes():
+def testcreate_centerline_planes():
     volume = create_rectangular_shape(1000, 15)
     with TemporaryDirectory() as directory:
         input_path = Path(directory, "data.nrrd")
@@ -359,7 +359,7 @@ def test_create_centerline_planes():
         nt.ok_(np.all(np.abs(res_q - expected) < tols))
 
 
-def test_create_centerline_planes_with_equation_format():
+def testcreate_centerline_planes_with_point_normal_format():
     volume = create_rectangular_shape(1000, 15)
     with TemporaryDirectory() as directory:
         input_path = Path(directory, "data.nrrd")
@@ -372,12 +372,12 @@ def test_create_centerline_planes_with_equation_format():
             link_distance=2,
             chain_length=10000,
             plane_count=10,
-            plane_format='equation',
+            plane_format='point_normal',
         )
         nt.ok_(output_path.exists())
 
         res_planes = tested.load_planes_centerline(output_path)
-        nt.assert_equal(res_planes['plane_format'], 'equation')
+        nt.assert_equal(res_planes['plane_format'], 'point_normal')
 
         # Difficult to predict the first correct value before finding the stability
         # remove the first and last quaternion then

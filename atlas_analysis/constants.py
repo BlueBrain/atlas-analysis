@@ -7,5 +7,5 @@ YVECTOR = np.array([0, 1, 0])
 ZVECTOR = np.array([0, 0, 1])
 XYZ = slice(0, 3)
 QUAT = slice(3, None)
-EQUATION = QUAT
+NORMAL = QUAT
 CANONICAL = np.array([XVECTOR, YVECTOR, ZVECTOR])
