@@ -74,9 +74,10 @@ def create(
     layer_ids,
 ):
     """ Create all atlases for circuit building """
-    sizes = split_str(sizes, int)
+    sizes = split_str(sizes, float)
     names = split_str(names, str)
-    layer_ids = split_str(layer_ids, int)
+    if layer_ids:
+        layer_ids = split_str(layer_ids, int)
     coordinates.creates(
         brain_regions_path,
         plane_centerline_path,

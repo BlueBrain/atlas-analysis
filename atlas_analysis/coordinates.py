@@ -84,7 +84,7 @@ from atlas_analysis.planes.planes import (
     load_planes_centerline,
     add_interpolated_planes,
 )
-from atlas_analysis.constants import X, Y, Z, YVECTOR, ZVECTOR, XVECTOR
+from atlas_analysis.constants import X, Y, Z, YVECTOR, ZVECTOR
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 L = logging.getLogger(__name__)
@@ -114,16 +114,15 @@ def _cut_shell(origin, quat, vtk_plane, vtk_cutter, radius=2500.0):
     vtk_cutter.Update()
 
     pos = vtk_to_numpy(vtk_cutter.GetOutput().GetPoints().GetData())
-
     dists = np.linalg.norm(pos - origin, axis=1)
+
+    # for banana type of atlases a plane can cut the volume multiple times we keep only the < radius
+    # points
     pos = pos[dists < radius]
-    pos = pos[
-        pos[:, 0].argsort()
-    ]  # TODO: change this and use the principal direction instead
     return pos
 
 
-def _plane_basis_projection(points, loc, rot):
+def _plane_basis_projection(points, loc, basis):
     """Projection of points within a plane.
 
     Args:
@@ -131,30 +130,33 @@ def _plane_basis_projection(points, loc, rot):
         must be planar.
         loc(np.array): the plane center in 3d space (np.array([x,y,z])). Arbitrary defines
         the origin of the new basis.
-        rot(Quaternion): the quaternion containing the plane's orientation.
+        basis(np.array): a 3x3 array containing the orthogonal basis composed of the plane normal,
+        the vector linking the mean of the upper shell points and the mean of the lower points and
+        the cross product of the two.
 
     Returns:
         np.array: (np.array([[x'1,y'1], ..., [x'2,y'2]])) the newly projected points on the plane.
 
     Notes:
         The idea of this basis change is to move from (x, y, z) to (x',y',z'). The original
-        basis being the voxel basis and the "prime" basis being the "rotated by rot" voxel basis.
+        basis being the voxel basis and the "prime" basis being an orthonormal basis with the base
+        vectors (nx', ny') included in the cut plane and nz' the normal of the plane. In this use
+        case the new basis is the combination of the plan normal, the mean upper to lower vector
+        and the cross product of these two vectors.
         By definition, points and loc are within the same plane. Therefore, the z' component,
         which is the normal to the plane, has to be very close to zero. So we move from (x, y, z)
         to (x',y', 0) and then to (x',y').
     """
 
     shifted_points = points - loc
-
-    base = np.dstack((rot.rotate(XVECTOR), rot.rotate(YVECTOR), rot.rotate(ZVECTOR)))[0]
     coords = list()
     for pp in shifted_points:
-        v = np.linalg.solve(base, pp)
+        v = np.linalg.solve(basis, pp)
         coords.append(v[:2])
     return coords
 
 
-def _clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
+def _clean_cut_array(points, loc, basis, distance_increment=5, is_upper=True):
     """Clean the plane cut array.
 
     Args:
@@ -164,7 +166,9 @@ def _clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
         of the new basis.
         distance_increment (int/float): initial distance to merge two (or more) points. Default
         value is 5 which is smaller than the typical voxel edge length.
-        rot(Quaternion): the quaternion containing the plane's orientation.
+        basis(np.array): a 3x3 array containing the orthogonal basis composed of the plane normal
+        (zaxis), the vector linking the mean of the upper shell points and the mean of
+        the lower points (y axis) and the cross product of the two (x axis).
         is_upper(bool): defines if the array represents an upper or lower cut.
     Returns:
         np.array: A sample of points (np.array([[x1,y1,z1], ..., [x2,y2,z2]])) corresponding
@@ -174,13 +178,13 @@ def _clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
         Depending on the orientation of the cutting plane and shell topology, the shell cut can be
         more than one voxel thick. That means some voxels share the same x coordinate and this
         messes up the spline process. The purpose of this phase is to create a 2d concave hull of
-        the points in the plane coordinates and to return points that compose this hull.
+        the points in the plane coordinates (basis) and to return points that compose this hull.
         This is super custom, poorly optimized and a library must do this way better than me
         but I did not find it (alpha hull added with circum gave poor results).
     """
     # pylint: disable=too-many-locals
     # points projected on the plane coordinates
-    coords = np.array(_plane_basis_projection(points, loc, rot))
+    coords = np.array(_plane_basis_projection(points, loc, basis))
 
     tree = cKDTree(coords)  # pylint: disable=not-callable
 
@@ -197,7 +201,7 @@ def _clean_cut_array(points, loc, rot, distance_increment=5, is_upper=True):
             break
 
         local_distance = 0
-        not_in_skip_mask = [0]
+        not_in_skip_mask = []
         while len(not_in_skip_mask) == 0:
             local_distance += distance_increment
 
@@ -255,7 +259,7 @@ def _global_sampling(upper_spline, lower_spline, nb_steps):
         ts = np.full((nb_steps,), step)
         vect = np.asarray(ptl) - np.asarray(ptu)
         vects = np.full((nb_steps, vect.shape[0]), vect)
-        pos = np.dstack((xs, ys, zs, rs, ts, vects[:, 0], vects[:, 1], vects[:, 2]))[0]
+        pos = np.column_stack((xs, ys, zs, rs, ts, vects[:, 0], vects[:, 1], vects[:, 2]))
         pos_all.append(pos)
     return np.vstack(pos_all).astype(np.float32)
 
@@ -292,6 +296,7 @@ def _create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps)
     L.info('Ends up in %i indexed points', nb_points)
 
     for plane in planes:
+
         loc, rot = plane.point, plane.get_quaternion(ZVECTOR)
 
         array_upper = _cut_shell(loc, rot, vtk_plane, upper_cutter)
@@ -301,9 +306,39 @@ def _create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps)
             nb_unused_planes += 1
             continue
 
-        # used to smooth the shells and remove points below the shell due to the mesh cut
-        cleaned_upper = _clean_cut_array(array_upper, loc, rot, is_upper=True)
-        cleaned_lower = _clean_cut_array(array_lower, loc, rot, is_upper=False)
+        # this is a work in process so I keep it outside a function atm
+        # =========
+        mean_upper = array_upper.mean(axis=0)
+        mean_lower = array_lower.mean(axis=0)
+
+        # mean upper to lower shell vector
+        up_down_mean_vector = mean_lower - mean_upper
+
+        plane_normal = vtk_plane.GetNormal()
+
+        # define a vector `prod_vect` such that
+        # (`plane_normal`, `up_down_mean_vector`, `prod_vect`) is a direct orthogonal basis.
+        # `up_down_mean_vector`, `prod_vect` are included in the plane.
+        prod_vect = np.cross(plane_normal, up_down_mean_vector)
+
+        # Sorting the cut arrays using the dot product between the mean upper and the points
+        # the points are sorted from left to right inside the plane.
+        uu = array_upper - mean_upper
+        vu = np.dot(uu, prod_vect)
+        array_upper_pre_clean = array_upper[vu.argsort()]
+
+        dd = array_lower - mean_lower
+        vd = np.dot(dd, prod_vect)
+        array_lower_pre_clean = array_lower[vd.argsort()]
+
+        # new basis using the plane normal, the up_down_mean_vector and their cross product
+        basis = np.column_stack((normalize_vector(prod_vect), normalize_vector(up_down_mean_vector),
+                                normalize_vector(plane_normal)))
+        # =========
+
+        # used to smooth the shells points before creating the spline
+        cleaned_upper = _clean_cut_array(array_upper_pre_clean, loc, basis, is_upper=True)
+        cleaned_lower = _clean_cut_array(array_lower_pre_clean, loc, basis, is_upper=False)
 
         upper_spline = create_vtk_spline(cleaned_upper)
         lower_spline = create_vtk_spline(cleaned_lower)
