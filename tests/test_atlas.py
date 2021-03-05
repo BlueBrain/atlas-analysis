@@ -5,11 +5,9 @@ from tempfile import TemporaryDirectory
 import nose.tools as nt
 import numpy.testing as npt
 import numpy as np
-import itertools
 from mock import patch
 import nrrd
 
-import voxcell
 import atlas_analysis.atlas as tested
 from atlas_analysis.exceptions import AtlasAnalysisError
 
@@ -130,6 +128,32 @@ def compare_all(testee):
     nt.ok_(compare(lambda x: x.raw.shape, testee))
     nt.ok_(compare(lambda x: x.voxel_dimensions, testee))
     nt.ok_(compare(lambda x: x.offset, testee))
+
+
+def test_assert_meta_properties_all_same():
+    atlases = load_nrrds(["1.nrrd", "1.nrrd"])
+    tested.assert_meta_properties(atlases)
+
+def test_assert_meta_properties_numpy_shape_mismatch():
+    atlases = load_nrrds(["1.nrrd", "1_direction_vectors.nrrd"])
+    tested.assert_meta_properties(atlases)
+
+@nt.raises(AtlasAnalysisError)
+def test_assert_meta_properties_shape_mismatch():
+    atlases = load_nrrds(["1.nrrd", "1_shape.nrrd"])
+    tested.assert_meta_properties(atlases)
+
+
+@nt.raises(AtlasAnalysisError)
+def test_assert_meta_properties_voxel_dimensions_mismatch():
+    atlases = load_nrrds(["1.nrrd", "1_voxel_dimensions.nrrd"])
+    tested.assert_meta_properties(atlases)
+
+
+@nt.raises(AtlasAnalysisError)
+def test_assert_meta_properties_offset_mismatch():
+    atlases = load_nrrds(["1.nrrd", "1_offset.nrrd"])
+    tested.assert_meta_properties(atlases)
 
 
 def test_assert_properties_1():

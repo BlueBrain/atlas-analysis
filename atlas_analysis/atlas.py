@@ -88,6 +88,34 @@ def homogenize_atlas_types(atlases, cast='safe'):
     return casted_atlases
 
 
+def assert_meta_properties(atlases):
+    """ Assert that all VoxelData metadata match
+
+    Check that
+        * VoxelData.shape
+        * VoxelData.voxel_dimensions
+        * VoxelData.offset
+
+    is consistent accross the input VoxelData objects.
+
+    For instance, it will not raise when comparing annotations with numpy shape
+    (W, H, D) to direction vectors with numpy shape (W, H, D, 3).
+
+    Args:
+        atlases: a list of VoxelData objects
+
+    Raises:
+        if one of the above meta properties is not shared by all VoxelData objects.
+    """
+    atlases = ensure_list(atlases)
+    if not compare_all(atlases, lambda x: x.shape, comp=np.allclose):
+        raise AtlasAnalysisError('Need to have the same shape for all files')
+    if not compare_all(atlases, lambda x: x.voxel_dimensions, comp=np.allclose):
+        raise AtlasAnalysisError('Need to have the same voxel_dimensions for all files')
+    if not compare_all(atlases, lambda x: x.offset, comp=np.allclose):
+        raise AtlasAnalysisError('Need to have the same offset for all files')
+
+
 def assert_properties(atlases):
     """ Assert that all atlases properties match
 
