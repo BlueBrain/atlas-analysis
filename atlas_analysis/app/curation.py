@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import click
 import voxcell
-import atlas_analysis.curation as curation
+from atlas_analysis import curation
 from atlas_analysis.curation import ALGORITHMS, NEAREST_NEIGHBOR_INTERPOLATION
 from atlas_analysis.app.utils import log_args, set_verbose, FILE_TYPE
 

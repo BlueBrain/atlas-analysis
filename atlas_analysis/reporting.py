@@ -35,9 +35,9 @@ class Report:
         Returns:
             Report object.
         """
-        report_file = codecs.open(file_name, 'r', encoding='utf-8')
-        dictionary = json.load(report_file)
-        return cls.from_dict(dictionary)
+        with codecs.open(file_name, 'r', encoding='utf-8') as report_file:
+            dictionary = json.load(report_file)
+            return cls.from_dict(dictionary)
 
     @classmethod
     def from_dict(cls, dictionary):
@@ -69,8 +69,8 @@ class Report:
         Args:
             file_name(str): the name of the json file to be created.
         """
-        report_file = codecs.open(file_name, 'w', encoding='utf-8')
-        json.dump(self.to_dict(), report_file, separators=(',', ':'), indent=4)
+        with codecs.open(file_name, 'w', encoding='utf-8') as report_file:
+            json.dump(self.to_dict(), report_file, separators=(',', ':'), indent=4)
 
 
 class VoxelDataReport(Report):

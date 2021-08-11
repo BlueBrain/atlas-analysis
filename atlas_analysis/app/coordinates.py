@@ -4,7 +4,7 @@ import logging
 
 import click
 
-import atlas_analysis.coordinates as coordinates
+from atlas_analysis import coordinates
 from atlas_analysis.vtk_visualization import render
 from atlas_analysis.app.utils import split_str, log_args, set_verbose, FILE_TYPE
 

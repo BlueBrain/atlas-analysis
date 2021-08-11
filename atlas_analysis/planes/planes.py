@@ -429,7 +429,7 @@ def create_centerline(
         """ weight function for the dijkstra. Must keep the _ in signature """
         return np.linalg.norm(clustered[node_id1] - clustered[node_id2])
 
-    A = networkx.nx.dijkstra_path(graph, 0, len(clustered) - 1, weight=_weight)
+    A = networkx.dijkstra_path(graph, 0, len(clustered) - 1, weight=_weight)
     return clustered[np.array(A)]
 
 

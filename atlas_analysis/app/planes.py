@@ -3,7 +3,7 @@ import logging
 
 import click
 
-import atlas_analysis.planes.planes as planes
+from atlas_analysis.planes import planes
 from atlas_analysis.app.utils import split_str, log_args, set_verbose, FILE_TYPE
 
 L = logging.getLogger("planes")
