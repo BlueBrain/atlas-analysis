@@ -72,7 +72,7 @@ def create_meshes(voxel_data, mesh_properties, algorithm=MARCHING_CUBES):
         a dictionary with name as key and the vtkObject object as value
     """
     if algorithm not in ALGORITHMS:
-        raise AtlasAnalysisError('{} unsupported mesh algorithm'.format(algorithm))
+        raise AtlasAnalysisError(f'{algorithm} unsupported mesh algorithm')
     algo_function = {ALPHA_HULL: alpha_hull, MARCHING_CUBES: marching_cubes}
     res = {}
     for name, labels in mesh_properties.items():

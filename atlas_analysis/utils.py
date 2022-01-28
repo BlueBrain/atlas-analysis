@@ -34,7 +34,7 @@ def ensure_list(value):
 def assert_safe_cast(value, expected_type):
     """ Check if we can safely cast a scalar or array scalar into a given type"""
     if not np.can_cast(value, expected_type, 'safe'):
-        raise AtlasAnalysisError('Cannot cast {} into {}'.format(value, expected_type))
+        raise AtlasAnalysisError(f'Cannot cast {value} into {expected_type}')
 
 
 def pairwise(iterable):

@@ -149,7 +149,7 @@ def _plane_basis_projection(points, loc, basis):
     """
 
     shifted_points = points - loc
-    coords = list()
+    coords = []
     for pp in shifted_points:
         v = np.linalg.solve(basis, pp)
         coords.append(v[:2])
@@ -188,7 +188,7 @@ def _clean_cut_array(points, loc, basis, distance_increment=5, is_upper=True):
 
     tree = cKDTree(coords)  # pylint: disable=not-callable
 
-    to_keep, to_skip = list(), set()
+    to_keep, to_skip = [], set()
 
     for i, point in enumerate(coords):
         if i in to_skip:
@@ -286,7 +286,7 @@ def _create_spline_indexing(planes, upper_cutter, lower_cutter, nb_spline_steps)
         Splines are kept in a map with the spline ids as index.
     """
     # pylint: disable=too-many-locals
-    sampled_points = list()
+    sampled_points = []
     nb_unused_planes = 0
     vtk_plane = vtk.vtkPlane()  # pylint: disable=no-member
     nb_points = len(planes) * nb_spline_steps * nb_spline_steps

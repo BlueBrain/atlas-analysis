@@ -54,7 +54,7 @@ def retrieve_ascoli_data(output_path):
 
 def extract(input_path, to_extract, regrouped_name):
     v = VoxelData.load_nrrd(str(input_path))
-    atlases = dict()
+    atlases = {}
 
     def _save(catlas, cname):
         cpath = "{}.nrrd".format(Path(DIRECTORY_PATH, cname))

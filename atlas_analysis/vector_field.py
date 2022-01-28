@@ -51,10 +51,9 @@ def interpolate(
             NearestNDInterpolator.
     """
     if interpolator not in INTERPOLATION_ALGORITHMS:
+        keys = INTERPOLATION_ALGORITHMS.keys()
         raise AtlasAnalysisError(
-            'Unknown interpolator. `interpolator` must be set with one of the following {}'.format(
-                INTERPOLATION_ALGORITHMS.keys()
-            )
+            f'Unknown interpolator. `interpolator` must be set with one of the following {keys}'
         )
 
     interpolator = INTERPOLATION_ALGORITHMS[interpolator]

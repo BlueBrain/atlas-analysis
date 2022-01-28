@@ -25,12 +25,10 @@ def safe_cast_atlas(voxel_data, new_type):
         min_data = np.min(raw)
         if not np.can_cast(max_data, new_type):
             raise AtlasAnalysisError(
-                "Cannot cast atlas in {}. Max value is {}".format(
-                    new_type, max_data))
+                f"Cannot cast atlas in {new_type}. Max value is {max_data}")
         if not np.can_cast(min_data, new_type):
             raise AtlasAnalysisError(
-                "Cannot cast atlas in {}. Min value is {}".format(
-                    new_type, min_data))
+                f"Cannot cast atlas in {new_type}. Min value is {min_data}")
     return voxel_data.with_data(raw.astype(new_type))
 
 
@@ -77,8 +75,9 @@ def homogenize_atlas_types(atlases, cast='safe'):
         else:
             global_type = np.promote_types(max_type, min_type)
     else:
-        raise AtlasAnalysisError('Unknown cast type {}. Should be '
-                                 '"strict", "minimal" or "safe"'.format(cast))
+        raise AtlasAnalysisError(
+            f'Unknown cast type {cast}. Should be "strict", "minimal" or "safe"'
+        )
     casted_atlases = []
     for atlas in atlases:
         if atlas.raw.dtype == global_type:
@@ -355,8 +354,7 @@ def change_encoding(nrrd_path, output=None, encoding='gzip', suffix='_gzip'):
     encoding = encoding.lower()
     if encoding not in VALID_ENCODING_NRRD:
         raise AtlasAnalysisError(
-            'Encoding {} not in {}'.format(
-                encoding, ','.join(VALID_ENCODING_NRRD)))
+            f"Encoding {encoding} not in {','.join(VALID_ENCODING_NRRD)}")
     raw, header = nrrd.read(nrrd_path)
     header['encoding'] = encoding
     if output is None:

@@ -135,7 +135,7 @@ def _save_voxel_data_to_dir(voxel_data, file_name, output_dir, create_dir_if_nee
     output_dir = Path(output_dir)
     if create_dir_if_needed and not output_dir.exists():
         output_dir.mkdir()
-    output_path = output_dir.joinpath('{}.nrrd'.format(file_name))
+    output_path = output_dir.joinpath(f'{file_name}.nrrd')
     voxel_data.save_nrrd(str(output_path.resolve()))
 
 
@@ -439,7 +439,7 @@ def assign_to_closest_region(
 
     if algorithm not in ALGORITHMS:
         raise AtlasAnalysisError(
-            '{} unsupported interpolation algorithm'.format(algorithm)
+            f'{algorithm} unsupported interpolation algorithm'
         )
     algo_function = {
         NEAREST_NEIGHBOR_INTERPOLATION: nearest_neighbor_interpolate,

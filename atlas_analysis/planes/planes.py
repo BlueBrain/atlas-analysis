@@ -163,9 +163,7 @@ def load_planes_centerline(filepath):
         ]
     else:
         raise AtlasAnalysisError(
-            'Unknown plane format {}. Expected: \'point_normal\' or \'quaternion\''.format(
-                res['plane_format']
-            )
+            f"Unknown plane format {res['plane_format']}. Expected: 'point_normal' or 'quaternion'"
         )
 
     return res

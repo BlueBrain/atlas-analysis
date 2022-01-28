@@ -62,7 +62,7 @@ def create(input_path, names, ids, algorithm, output_dir):
         elif algorithm == meshes.ALPHA_HULL:
             _save(mesh, mesh_name, save_unstructuredgrid_to_stl)
         else:
-            raise AtlasAnalysisError('{} unsupported mesh algorithm'.format(algorithm))
+            raise AtlasAnalysisError(f'{algorithm} unsupported mesh algorithm')
 
 
 @app.command()

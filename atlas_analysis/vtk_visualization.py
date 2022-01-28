@@ -95,7 +95,7 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
     # Axes representation
     if orientation_file:
         if not exists(orientation_file):
-            raise FileExistsError('{} does not exists'.format(orientation_file))
+            raise FileExistsError(f'{orientation_file} does not exists')
         qf = voxcell.OrientationField.load_nrrd(orientation_file)
 
         idx = np.array(np.nonzero(qf.raw)).T[:, :3]  # pylint: disable=unsubscriptable-object
@@ -130,7 +130,7 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
             if stl is None:
                 continue
             if not exists(stl):
-                raise FileExistsError('{} does not exists'.format(stl))
+                raise FileExistsError(f'{stl} does not exists')
             mesh_data = load_stl(stl)
             mapper = vtkDataSetMapper()
             mapper.SetInputData(mesh_data)

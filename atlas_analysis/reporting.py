@@ -281,7 +281,7 @@ class Histogram:
                 101 elements lie within the bounds [0, 10).
                 552 elements lie within the bounds [10, 100).
         """
-        dictionary = dict()
+        dictionary = {}
         dictionary['total'] = self.total
         # display the least bin edge: there is no element in the empty range (0, 0]
         dictionary[str(self.bin_edges[0])] = 0
@@ -317,7 +317,7 @@ class Histogram:
                     edge = int(key)
                 except ValueError as error:
                     raise AtlasAnalysisError(
-                        error_message + 'Unknown non-integer key {}. {}'.format(key, error)
+                        error_message + f'Unknown non-integer key {key}. {error}'
                     ) from error
                 bin_edges.append(edge)
 
@@ -405,7 +405,7 @@ class ConnectivityReport(RawReport):
         return cls(connected_component_histogram)
 
     def to_dict(self):
-        dictionary = dict()
+        dictionary = {}
         dictionary['is_connected'] = self.connected_component_histogram.total == 1
         dictionary[
             'connected_component_histogram'
@@ -417,7 +417,7 @@ class ConnectivityReport(RawReport):
         for key in ['is_connected', 'connected_component_histogram']:
             if key not in dictionary:
                 raise AtlasAnalysisError(
-                    'Invalid input dictionary. Missing key {}.'.format(key)
+                    f'Invalid input dictionary. Missing key {key}.'
                 )
 
         connected_component_histogram = Histogram.from_dict(
@@ -426,10 +426,8 @@ class ConnectivityReport(RawReport):
         number_of_components = connected_component_histogram.total
         if dictionary['is_connected'] and number_of_components > 2:
             raise AtlasAnalysisError(
-                'Inconsistent input dictionary.'
-                ' is_connected is True whereas the number of connected components is {}.'.format(
-                    number_of_components
-                )
+                f'Inconsistent input dictionary. is_connected is True '
+                f'whereas the number of connected components is {number_of_components}.'
             )
         return cls(connected_component_histogram)
 
@@ -477,7 +475,7 @@ class CavityReport(RawReport):
         return cls(voxel_count, float(voxel_count) / np.count_nonzero(mask))
 
     def to_dict(self):
-        dictionary = dict()
+        dictionary = {}
         dictionary['has_cavities'] = bool(self.voxel_count > 0)
         dictionary['voxel_count'] = self.voxel_count
         dictionary['proportion'] = self.proportion
@@ -488,15 +486,13 @@ class CavityReport(RawReport):
         for key in ['has_cavities', 'voxel_count', 'proportion']:
             if key not in dictionary:
                 raise AtlasAnalysisError(
-                    'Invalid input dictionary. Missing key {}.'.format(key)
+                    f'Invalid input dictionary. Missing key {key}.'
                 )
 
         if not dictionary['has_cavities'] and dictionary['voxel_count'] > 0:
             raise AtlasAnalysisError(
-                'Inconsistent input dictionary.'
-                ' has_cavities is False whereas the number of cavity voxels is {}.'.format(
-                    dictionary['voxel_count']
-                )
+                f"Inconsistent input dictionary. has_cavities is False "
+                f"whereas the number of cavity voxels is {dictionary['voxel_count']}."
             )
         return cls(dictionary['voxel_count'], dictionary['proportion'])
 
@@ -561,7 +557,7 @@ class HeaderReport(VoxelDataReport):
         for key in ['sizes', 'space_dimension', 'space_directions', 'space_origin']:
             if key not in dictionary:
                 raise AtlasAnalysisError(
-                    'Invalid input dictionary. Missing key {}.'.format(key)
+                    f'Invalid input dictionary. Missing key {key}.'
                 )
 
         return cls(
@@ -645,7 +641,7 @@ class RegionVoxelCountReport(RawReport):
         for key in ['voxel_count', 'proportion']:
             if key not in dictionary:
                 raise AtlasAnalysisError(
-                    'Invalid input dictionary. Missing key {}.'.format(key)
+                    f'Invalid input dictionary. Missing key {key}.'
                 )
         connectivity = None
         cavities = None
@@ -742,7 +738,7 @@ class VoxelCountReport(VoxelDataReport):
         if kwargs.get('cavities_are_required', False):
             cavities = CavityReport.from_raw(raw)
         # Region specific information
-        region_counts = dict()
+        region_counts = {}
         for identifier, count in zip(region_list, counts):
             region_kwargs = {
                 'identifier': identifier,
@@ -770,7 +766,7 @@ class VoxelCountReport(VoxelDataReport):
         )
 
     def to_dict(self):
-        region_counts_dict = dict()
+        region_counts_dict = {}
         for identifier, report in self.region_counts.items():
             region_counts_dict[identifier] = report.to_dict()
 
@@ -810,9 +806,9 @@ class VoxelCountReport(VoxelDataReport):
         ]:
             if key not in dictionary:
                 raise AtlasAnalysisError(
-                    'Invalid input dictionary. Missing key {}.'.format(key)
+                    f'Invalid input dictionary. Missing key {key}.'
                 )
-        region_counts = dict()
+        region_counts = {}
         for identifier, report_dict in dictionary['region_counts'].items():
             region_counts[identifier] = RegionVoxelCountReport.from_dict(report_dict)
         connectivity = None

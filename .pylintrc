@@ -4,13 +4,8 @@ disable=
     fixme,
     invalid-name,
     len-as-condition,
-    no-else-return,
-    # FIXME: fix the code and remove unneeded exceptions
     duplicate-code,
     import-outside-toplevel,
-    consider-using-f-string,
-    use-list-literal,
-    use-dict-literal,
 
 [FORMAT]
 # Maximum number of characters on a single line.
