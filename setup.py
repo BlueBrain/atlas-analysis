@@ -1,14 +1,16 @@
 #!/usr/bin/env python
-
-import imp
-import sys
+import importlib.util
 
 from setuptools import setup, find_packages
 
-if sys.version_info < (3, 6):
-    sys.exit("Sorry, Python < 3.6 is not supported")
 
-VERSION = imp.load_source("", "atlas_analysis/version.py").__version__
+spec = importlib.util.spec_from_file_location(
+    "atlas_analysis.version",
+    "atlas_analysis/version.py",
+)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+VERSION = module.__version__
 
 setup(
     name="atlas-analysis",
@@ -17,7 +19,7 @@ setup(
     version=VERSION,
     description="Library containing atlas analyses for circuit building",
     url="https://bbpteam.epfl.ch/project/issues/projects/NSETM/issues",
-    download_url="ssh://bbpcode.epfl.ch/nse/atlas-analysis",
+    download_url="https://bbpgitlab.epfl.ch/nse/atlas-analysis",
     license="BBP-internal-confidential",
     install_requires=[
         'click>=7.0',
@@ -35,11 +37,14 @@ setup(
         'scikit-image>=0.16.1'
     ],
     packages=find_packages(),
+    python_requires=">=3.7",
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
     entry_points={
         'console_scripts': [

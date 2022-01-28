@@ -9,3 +9,4 @@ doc/build
 **/.vscode
 **/.mypy_cache
 .python-version
+venv
