@@ -4,10 +4,7 @@ check large orientation dataset (up to 500000 orientations).
 from os.path import exists
 
 # pylint: disable=no-name-in-module
-from vtk import (vtkPolyData, vtkPolyDataMapper, vtkActor,
-                 vtkPoints, vtkCellArray, vtkLine, vtkRenderer,
-                 vtkRenderWindow, vtkRenderWindowInteractor,
-                 vtkDataSetMapper)
+import vtk
 import numpy as np
 from pyquaternion import Quaternion
 
@@ -20,14 +17,14 @@ from atlas_analysis.planes.planes import load_planes_centerline
 
 def _line_actor(points, lines):
     """Create a line actor from points and lines."""
-    lines_polyData = vtkPolyData()
+    lines_polyData = vtk.vtkPolyData()
     lines_polyData.SetPoints(points)
     lines_polyData.SetLines(lines)
-    mapper = vtkPolyDataMapper()
+    mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputData(lines_polyData)
     mapper.Update()
 
-    line_actor = vtkActor()
+    line_actor = vtk.vtkActor()
     line_actor.SetMapper(mapper)
     return line_actor
 
@@ -44,15 +41,15 @@ def _create_vector_actor(locs, rots, axis, size_multiplier=200.):
     Returns :
         the vtk object for rendering vectors (vtkActor).
     """
-    points = vtkPoints()
-    lines = vtkCellArray()
+    points = vtk.vtkPoints()
+    lines = vtk.vtkCellArray()
     ids = 0
     for loc, rot in zip(locs, rots):
         loc = np.array(loc)
         dest = loc + size_multiplier * np.array(rot.rotate(axis))
         points.InsertNextPoint(loc)
         points.InsertNextPoint(dest)
-        line = vtkLine()
+        line = vtk.vtkLine()
         line.GetPointIds().SetId(0, ids)
         line.GetPointIds().SetId(1, ids + 1)
         lines.InsertNextCell(line)
@@ -62,8 +59,8 @@ def _create_vector_actor(locs, rots, axis, size_multiplier=200.):
 
 def create_centerline(centerline):
     """Create 3d centerline using a plane_centerline output from the planes module."""
-    points = vtkPoints()
-    lines = vtkCellArray()
+    points = vtk.vtkPoints()
+    lines = vtk.vtkCellArray()
     lines.InsertNextCell(len(centerline))
     for i, point in enumerate(centerline):
         points.InsertNextPoint(point)
@@ -86,10 +83,10 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
     """
     # pylint: disable=too-many-locals,too-many-statements
     #  Create graphics renderer
-    global_renderer = vtkRenderer()
-    window_renderer = vtkRenderWindow()
+    global_renderer = vtk.vtkRenderer()
+    window_renderer = vtk.vtkRenderWindow()
     window_renderer.AddRenderer(global_renderer)
-    iren = vtkRenderWindowInteractor()
+    iren = vtk.vtkRenderWindowInteractor()
     iren.SetRenderWindow(window_renderer)
 
     # Axes representation
@@ -132,9 +129,9 @@ def render(orientation_file=None, rad=False, long=False, trans=False,
             if not exists(stl):
                 raise FileExistsError(f'{stl} does not exists')
             mesh_data = load_stl(stl)
-            mapper = vtkDataSetMapper()
+            mapper = vtk.vtkDataSetMapper()
             mapper.SetInputData(mesh_data)
-            triangulation = vtkActor()
+            triangulation = vtk.vtkActor()
             triangulation.SetMapper(mapper)
             triangulation.GetProperty().SetColor(1, 0, 0)
             triangulation.GetProperty().SetOpacity(0.3)

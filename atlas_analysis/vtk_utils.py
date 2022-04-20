@@ -1,9 +1,7 @@
 """ Utilities for vtk """
 # pylint: disable=no-name-in-module
-from vtk import (vtkPoints, vtkCutter,
-                 vtkParametricSpline, vtkPolyData, vtkDelaunay3D,
-                 vtkGeometryFilter, vtkSTLWriter,
-                 vtkImageData, VTK_UNSIGNED_CHAR, vtkMarchingCubes, vtkSTLReader)
+import vtk
+
 from vtk.util import numpy_support  # pylint: disable=import-error
 
 
@@ -16,9 +14,9 @@ def convert_points_to_vtk(points):
     Returns:
         Points using the vtk format (a vtkPoints object)
     """
-    if isinstance(points, vtkPoints):
+    if isinstance(points, vtk.vtkPoints):
         return points
-    vtk_points = vtkPoints()
+    vtk_points = vtk.vtkPoints()
     for point in points:
         vtk_points.InsertNextPoint(point[0], point[1], point[2])
     return vtk_points
@@ -26,7 +24,7 @@ def convert_points_to_vtk(points):
 
 def unstructuredgrid_to_polydata(unstructured_grid):
     """ Convert an unstructured grid to a polydata object """
-    geom_filter = vtkGeometryFilter()
+    geom_filter = vtk.vtkGeometryFilter()
     geom_filter.SetInputData(unstructured_grid)
     geom_filter.Update()
     return geom_filter.GetOutput()
@@ -41,7 +39,7 @@ def load_stl(input_file):
     Returns:
         A vtkUnstructuredGridReader already updated.
     """
-    reader = vtkSTLReader()
+    reader = vtk.vtkSTLReader()
     reader.SetFileName(input_file)
     reader.Update()
     return reader.GetOutput()
@@ -57,7 +55,7 @@ def save_polydata_to_stl(polydata, output_path):
     Returns:
         The output file name.
     """
-    writer = vtkSTLWriter()
+    writer = vtk.vtkSTLWriter()
     writer.SetFileName(output_path)
     writer.SetInputData(polydata)
     writer.Write()
@@ -74,7 +72,7 @@ def save_unstructuredgrid_to_stl(unstructured_grid, output_path):
     Returns:
         The output file name.
     """
-    writer = vtkSTLWriter()
+    writer = vtk.vtkSTLWriter()
     writer.SetFileName(output_path)
     writer.SetInputData(unstructuredgrid_to_polydata(unstructured_grid))
     writer.Write()
@@ -83,9 +81,9 @@ def save_unstructuredgrid_to_stl(unstructured_grid, output_path):
 
 def voxeldata_to_vtkImageData(voxel_data):
     """ Convert a VoxelData object into a vtkImageData object """
-    image_data = vtkImageData()
+    image_data = vtk.vtkImageData()
     array_data = numpy_support.numpy_to_vtk(voxel_data.raw.transpose(2, 1, 0).flatten(),
-                                            deep=True, array_type=VTK_UNSIGNED_CHAR)
+                                            deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
 
     image_data.SetDimensions(voxel_data.raw.shape)
     image_data.SetSpacing(voxel_data.voxel_dimensions)
@@ -97,7 +95,7 @@ def voxeldata_to_vtkImageData(voxel_data):
 def create_cutter_from_stl(stl_path):
     """ Create a vtkCutter from a stl unstructured_grid file """
     polydata = load_stl(stl_path)
-    cutter = vtkCutter()
+    cutter = vtk.vtkCutter()
     cutter.SetInputData(polydata)
     return cutter
 
@@ -116,7 +114,7 @@ def update_vtk_plane(plane, point, normal):
 
 def create_vtk_spline(points):
     """ Create a vtkParametricSpline using points as inputs"""
-    spline = vtkParametricSpline()
+    spline = vtk.vtkParametricSpline()
     spline.SetPoints(convert_points_to_vtk(points))
     spline.ParameterizeByLengthOn()
     spline.ClosedOff()
@@ -136,10 +134,10 @@ def alpha_hull(points, alpha=16, tol=32):
     Returns:
         an vtkUnstructuredGrid object representing the contour
     """
-    poly_points = vtkPolyData()
+    poly_points = vtk.vtkPolyData()
     poly_points.SetPoints(convert_points_to_vtk(points))
 
-    contour = vtkDelaunay3D()
+    contour = vtk.vtkDelaunay3D()
     contour.SetInputData(poly_points)
 
     contour.SetTolerance(tol)
@@ -160,7 +158,7 @@ def marching_cubes(image_data, iso_value=0.5):
     Returns:
         an vtkPolyData object representing the contour
     """
-    contour = vtkMarchingCubes()
+    contour = vtk.vtkMarchingCubes()
     contour.SetInputData(image_data)
     contour.ComputeNormalsOn()
     contour.SetValue(0, iso_value)

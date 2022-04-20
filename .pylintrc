@@ -16,3 +16,6 @@ max-line-length=100
 max-args=15
 # Maximum number of locals for function / method body
 max-locals=15
+
+[TYPECHECK]
+ignored-classes=vtk
