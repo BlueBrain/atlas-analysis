@@ -474,7 +474,7 @@ def _smoothing(path, ctrl_point_count=10):
 
 
 def create_planes(
-    centerline, plane_count=25, delta=0.001
+    centerline, plane_count=25, delta=0.001, steps=None,
 ):  # pylint: disable=too-many-locals
     """ Returns the plane quaternions and positions
 
@@ -486,14 +486,22 @@ def create_planes(
         centerline: a ndarray(N, 3) representing the centerline
         plane_count: the number of planes to return
         delta: the parametric delta to define the tangent
+        steps: if not None, a 1d ndarray in [0, 1] will be used instead of plane_count equally
+            spaced steps, and plane_count will be set to length of this array
 
     Returns:
         a list of plane_count x Plane([x, y, z], [A, B, C])
     """
     spline = create_vtk_spline(centerline)
+
+    if steps is None:
+        steps = np.linspace(0, 1, plane_count, endpoint=True)
+    else:
+        plane_count = len(steps)
+
     sampling_up = np.zeros((plane_count, 3), dtype=np.float)
     sampling_down = np.zeros((plane_count, 3), dtype=np.float)
-    steps = np.linspace(0, 1, plane_count, endpoint=True)
+
     ptu = [0, 0, 0]
     ptd = [0, 0, 0]
     d = [0, 0, 0, 0, 0, 0, 0, 0, 0]

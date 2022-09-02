@@ -62,8 +62,8 @@ def homogenize_atlas_types(atlases, cast='safe'):
     if cast == 'safe':
         global_type = np.result_type(*list(map(lambda x: x.raw.dtype, atlases)))
     elif cast == 'minimal':
-        data_max = max([atlas.raw.max() for atlas in atlases])
-        data_min = min([atlas.raw.min() for atlas in atlases])
+        data_max = max(atlas.raw.max() for atlas in atlases)
+        data_min = min(atlas.raw.min() for atlas in atlases)
         max_type = np.min_scalar_type(data_max)
         min_type = np.min_scalar_type(data_min)
         # TODO: if max is a int32 70000 min_scalar returns uint32 and if min is negative
