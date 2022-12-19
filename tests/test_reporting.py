@@ -41,7 +41,7 @@ def test_density_report_save_as():
 
 def test_density_report_from_files():
     shape = (4, 4, 4)
-    raw = np.zeros(shape, dtype=np.int)
+    raw = np.zeros(shape, dtype=int)
     raw[1:3, 1:3, 1:3] = 1
     pair = (0, 3)
     for t in itertools.product(pair, pair, pair):
@@ -50,7 +50,7 @@ def test_density_report_from_files():
     voxel_dimensions = (2.0, 2.0, 2.0)
     annotation_voxeldata = voxcell.VoxelData(raw, voxel_dimensions)
     # Cell density
-    cell_density_raw = np.zeros(shape, dtype=np.float)
+    cell_density_raw = np.zeros(shape, dtype=float)
     cell_density_raw[1:3, 1:3, 1:3] = 0.01
     cell_density_raw[2, 2, 2] = 0.02
     cell_density_raw[3, 3, 3] = 0.05
@@ -59,7 +59,7 @@ def test_density_report_from_files():
     cell_density_raw[0, 1, 2] = 0.0125
     cell_density_voxeldata = voxcell.VoxelData(cell_density_raw, voxel_dimensions)
     # Glia density
-    glia_density_raw = np.zeros(shape, dtype=np.float)
+    glia_density_raw = np.zeros(shape, dtype=float)
     glia_density_raw[1:3, 1:3, 1:3] = 0.03
     glia_density_raw[1, 2, 2] = 0.015
     glia_density_raw[2, 2, 1] = 0.015
@@ -70,7 +70,7 @@ def test_density_report_from_files():
     glia_density_raw[0, 1, 2] = 0.0325
     glia_density_voxeldata = voxcell.VoxelData(glia_density_raw, voxel_dimensions)
     # Excitatory neurons density
-    exc_density_raw = np.zeros(shape, dtype=np.float)
+    exc_density_raw = np.zeros(shape, dtype=float)
     exc_density_raw[1:3, 1:3, 1:3] = 0.04
     exc_density_raw[1, 1, 2] = 0.025
     exc_density_raw[2, 2, 1] = 0.015

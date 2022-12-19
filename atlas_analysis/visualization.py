@@ -61,7 +61,7 @@ def compute_flatmap_image(flatmap_raw):
     in_mask = np.all(flatmap_raw >= 0, axis=-1)
     pixel_indices = flatmap_raw[in_mask].T
     image_shape = np.max(pixel_indices, axis=1) + 1
-    image = np.zeros(image_shape, dtype=np.bool)
+    image = np.zeros(image_shape, dtype=bool)
     image[tuple(pixel_indices)] = True
     return image
 
@@ -90,7 +90,7 @@ def compute_flatmap_histogram(flatmap_raw):
         flatmap_raw[in_mask], axis=0, return_counts=True
     )
     image_shape = np.max(pixel_coordinates, axis=0) + 1
-    histogram = np.zeros(image_shape, dtype=np.int)
+    histogram = np.zeros(image_shape, dtype=int)
     histogram[tuple(pixel_coordinates.T)] = counts
     return histogram
 

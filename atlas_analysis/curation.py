@@ -576,7 +576,7 @@ def fill_cavities(voxeldata):
     """
 
     raw = voxeldata.raw
-    mask = np.copy(raw).astype(np.bool)  # binary copy of the input image
+    mask = np.copy(raw).astype(bool)  # binary copy of the input image
     filled_mask = binary_fill_holes(mask)
     cavities = filled_mask != mask
     np_type = raw.dtype

@@ -499,8 +499,8 @@ def create_planes(
     else:
         plane_count = len(steps)
 
-    sampling_up = np.zeros((plane_count, 3), dtype=np.float)
-    sampling_down = np.zeros((plane_count, 3), dtype=np.float)
+    sampling_up = np.zeros((plane_count, 3), dtype=float)
+    sampling_down = np.zeros((plane_count, 3), dtype=float)
 
     ptu = [0, 0, 0]
     ptd = [0, 0, 0]

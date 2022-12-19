@@ -239,8 +239,8 @@ def _global_sampling(upper_spline, lower_spline, nb_steps):
     """
     # pylint: disable=too-many-locals
     steps = np.linspace(0, 1, nb_steps, endpoint=True)
-    sampling_upper = np.zeros((nb_steps, 3), dtype=np.float)
-    sampling_lower = np.zeros((nb_steps, 3), dtype=np.float)
+    sampling_upper = np.zeros((nb_steps, 3), dtype=float)
+    sampling_lower = np.zeros((nb_steps, 3), dtype=float)
     ptu = [0, 0, 0]
     ptl = [0, 0, 0]
     d = [0, 0, 0, 0, 0, 0, 0, 0, 0]

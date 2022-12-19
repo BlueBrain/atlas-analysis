@@ -10,9 +10,9 @@ import atlas_analysis.visualization as tested
 
 
 def test_downscale():
-    raw = np.ones((4, 6), dtype=np.int)
+    raw = np.ones((4, 6), dtype=int)
     result = tested.downscale(raw, 2)
-    npt.assert_array_equal(result, np.ones((2, 3), dtype=np.float))
+    npt.assert_array_equal(result, np.ones((2, 3), dtype=float))
     raw = np.array([[1, 2, 3, 4], [0, 2, 3, 4],])
     result = tested.downscale(raw, 1)
     npt.assert_array_equal(result, [[5.0 / 4.0, 14.0 / 4.0]])

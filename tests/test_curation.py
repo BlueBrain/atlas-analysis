@@ -475,7 +475,7 @@ def test_smooth():
 
 def test_fill_cavities():
     size = 81
-    raw = np.zeros([size] * 3, dtype=np.int)
+    raw = np.zeros([size] * 3, dtype=int)
     a = size // 3
     raw[:a, :, :] = 1
     raw[a:2*a, :, :] = 2
@@ -499,7 +499,7 @@ def test_fill_cavities():
     npt.assert_array_equal(expected_raw, voxeldata.raw)
 
 def test_add_margin():
-    raw = np.zeros([3] * 3, dtype=np.int)
+    raw = np.zeros([3] * 3, dtype=int)
     voxel_dimensions = (1.0, 2.0, 3.0)
     offset = (-10.0, 0.0, 10.0)
     voxel_data = voxcell.VoxelData(raw, voxel_dimensions, offset)
@@ -510,5 +510,5 @@ def test_add_margin():
 @nt.raises(ValueError)
 def test_add_margin_negative_input():
     voxel_data = voxcell.VoxelData(
-        np.zeros([3] * 3, dtype=np.int), (1.0, 1.0, 1.0))
+        np.zeros([3] * 3, dtype=int), (1.0, 1.0, 1.0))
     tested.add_margin(voxel_data, -5)

@@ -69,7 +69,7 @@ def test_assert_safe_cast_3():
 
 
 def test_assert_safe_cast_4():
-    tested.assert_safe_cast(1, np.str)
+    tested.assert_safe_cast(1, str)
 
 
 def test_pairwise():

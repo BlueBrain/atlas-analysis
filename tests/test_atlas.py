@@ -19,7 +19,7 @@ def choice(result, sample, replace=False):
 
 
 def test__non_zero():
-    expected = np.zeros((2, 1, 1), dtype=np.bool)
+    expected = np.zeros((2, 1, 1), dtype=bool)
     expected[0, 0, 0] = False
     expected[1, 0, 0] = True
 
@@ -27,7 +27,7 @@ def test__non_zero():
     res = tested._non_zero(neg_int8.raw, True)
     npt.assert_array_equal(res, expected)
 
-    expected = np.zeros((2, 1, 1), dtype=np.bool)
+    expected = np.zeros((2, 1, 1), dtype=bool)
     expected[0, 0, 0] = True
     expected[1, 0, 0] = True
     res = tested._non_zero(neg_int8.raw, False)
