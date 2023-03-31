@@ -1,10 +1,9 @@
 """ Utility module for atlas analyses """
 import itertools
 import logging
-import collections
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-import six
 import numpy as np
 
 import voxcell
@@ -25,8 +24,7 @@ def add_suffix(file_path, to_add, force=False):
 
 def ensure_list(value):
     """ Convert iterable / wrap scalar into list (strings are considered scalar). """
-    if isinstance(value, collections.Iterable) and not isinstance(value, (
-            six.string_types, collections.Mapping)):
+    if isinstance(value, Iterable) and not isinstance(value, (str, Mapping)):
         return list(value)
     return [value]
 

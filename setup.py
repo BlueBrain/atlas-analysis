@@ -26,7 +26,6 @@ setup(
     install_requires=[
         'click>=7.0',
         'geomdl>=5.2.8',
-        'lazy>=1.4',
         'numpy>=1.16.3',
         'networkx>=2.3',
         'pathos>=0.2.3',
@@ -35,7 +34,6 @@ setup(
         'scipy>=1.2.1',
         'voxcell>=2.6.2',
         'vtk>=8.1.2',
-        'six>=1.12.0',
         'scikit-image>=0.16.1'
     ],
     packages=find_packages(),
@@ -47,6 +45,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
     entry_points={
         'console_scripts': [
