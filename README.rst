@@ -34,8 +34,22 @@ The lib already contains some basic functions such as:
 Some more complex functions will be added in a near future. These functions are: creating a
 centerline for concave volumes, creating homogeneous subregions and orientiations.
 
-A bunch of cli will be available too. And tools for visualization.
+Installation
+============
 
-Later, we will include also the coordinate query and plane projector used
-by Armando at some point. Since this is extracted form the proj42 gerrit, this was highly
-prototypic and testing will come with time.
+It can be installed using pip:
+
+.. code-block:: bash
+
+    $ pip install git+https://github.com/BlueBrain/atlas-analysis/
+
+Acknowledgment
+==============
+
+The development of this software was supported by funding to the Blue Brain Project, a research center of the École polytechnique fédérale de Lausanne (EPFL), from the Swiss government’s ETH Board of the Swiss Federal Institutes of Technology.
+
+This project/research received funding from the European Union’s Horizon 2020 Framework Programme for Research and Innovation under the Framework Partnership Agreement No. 650003 (HBP FPA).
+
+For license see LICENSE.txt.
+
+Copyright © 2014-2024 Blue Brain Project/EPFL
